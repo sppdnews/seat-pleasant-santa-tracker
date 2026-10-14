@@ -291,4 +291,520 @@
           <h3 class="font-bold text-amber-300 uppercase tracking-wider text-xs">2. Manual Status Banner Update</h3>
           <div class="flex gap-2">
             <input id="input-custom-status" type="text" placeholder="e.g., Santa is now arriving at Greig Street Apartments!" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
-            <button onclick
+            <button onclick="applyCustomStatus()" class="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs">
+              Update Banner
+            </button>
+          </div>
+        </div>
+
+        <!-- CivicPlus Iframe Snippet -->
+        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-2">
+          <h3 class="font-bold text-emerald-300 uppercase tracking-wider text-xs">3. CivicPlus Website Iframe Embed Code</h3>
+          <p class="text-xs text-slate-400">Paste this responsive snippet into a CivicPlus <strong>Custom HTML</strong> widget:</p>
+          <textarea id="embed-code-box" readonly rows="4" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 font-mono text-[11px] text-emerald-300"><div style="width:100%;max-width:1200px;margin:0 auto;border-radius:16px;overflow:hidden;box-shadow:0 12px 32px rgba(0,0,0,0.35);">
+  <iframe src="https://YOUR-GITHUB-USERNAME.github.io/seat-pleasant-santa-tracker/" width="100%" height="740" style="border:0;display:block;" allow="autoplay; fullscreen" loading="lazy" title="City of Seat Pleasant Santa Run Tracker"></iframe>
+</div></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. MAP INITIALIZATION (100% Keyless Esri Street + Winter Wonderland Filter)
+    // =========================================================================
+    const SEAT_PLEASANT_CENTER = [38.8942, -76.8985];
+
+    const map = L.map('map', {
+      center: SEAT_PLEASANT_CENTER,
+      zoom: 15,
+      zoomControl: false
+    });
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    const winterStreetLayer = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+      {
+        maxZoom: 19,
+        attribution: 'Tiles &copy; Esri &mdash; City of Seat Pleasant Winter Wonderland'
+      }
+    ).addTo(map);
+
+    map.getPane('tilePane').classList.add('theme-winter-wonderland');
+
+    // =========================================================================
+    // 2. OFFICIAL SEAT PLEASANT SANTA RUN ROUTE (STEP-BY-STEP)
+    // =========================================================================
+    const santaRoute = [
+      // Start: 6011 Addison Rd (Santa HQ)
+      { lat: 38.8931, lng: -76.9016, street: "Santa HQ — Departing 6011 Addison Rd", next: "Drylog St Neighborhood" },
+      // Up Addison Rd to Drylog St
+      { lat: 38.8945, lng: -76.9012, street: "Turning onto Drylog St from Addison Rd", next: "Drylog St & Neighborhood Loop" },
+      { lat: 38.8953, lng: -76.8980, street: "Visiting Drylog St", next: "Drylog Neighborhood Streets" },
+      // A few roads in the Drylog area (65th / Foote St / 62nd Pl / Seat Pleasant Dr loop)
+      { lat: 38.8962, lng: -76.8950, street: "Drylog St East Neighborhood", next: "Foote St & Seat Pleasant Dr Loop" },
+      { lat: 38.8973, lng: -76.8958, street: "Looping through Foote St & 65th Ave Area", next: "Seat Pleasant Dr" },
+      { lat: 38.8968, lng: -76.8992, street: "Visiting Seat Pleasant Dr & 62nd Pl Area", next: "Back to Addison Rd" },
+      { lat: 38.8951, lng: -76.9002, street: "Returning along Drylog St to Addison Rd", next: "Left Turn onto Addison Rd" },
+      // Left on Addison Rd heading South
+      { lat: 38.8945, lng: -76.9012, street: "Left Turn onto Addison Rd (Heading South)", next: "Baltic St" },
+      { lat: 38.8926, lng: -76.9017, street: "Proceeding South on Addison Rd past Santa HQ", next: "Baltic St" },
+      // Baltic Street -> Avon -> Adak
+      { lat: 38.8908, lng: -76.9001, street: "Turning onto Baltic St", next: "Avon St" },
+      { lat: 38.8907, lng: -76.8982, street: "Visiting Baltic St Neighborhood", next: "Avon St" },
+      { lat: 38.8899, lng: -76.8991, street: "Weaving onto Avon St", next: "Adak St" },
+      { lat: 38.8892, lng: -76.8972, street: "Visiting Avon St & Adak St Corridor", next: "Adak St" },
+      { lat: 38.8885, lng: -76.8941, street: "Traveling along Adak St toward Central Ave", next: "Central Ave (MD-214)" },
+      // Up Central Avenue to City Hall
+      { lat: 38.8878, lng: -76.8935, street: "Turning onto Central Ave (Heading West)", next: "Seat Pleasant City Hall" },
+      { lat: 38.8884, lng: -76.8975, street: "Cruising up Central Ave", next: "Seat Pleasant City Hall" },
+      { lat: 38.8891, lng: -76.9012, street: "Central Ave & Addison Rd Intersection", next: "Seat Pleasant City Hall Stop" },
+      // Stop at City Hall (6301 Addison Rd)
+      { lat: 38.8906, lng: -76.9012, street: "STOP: Seat Pleasant City Hall (6301 Addison Rd) 🏛️", next: "Addison Rd to MLK Jr. Hwy" },
+      // Proceed down Addison Rd to MLK Jr. Hwy
+      { lat: 38.8931, lng: -76.9016, street: "Proceeding along Addison Rd toward MLK Jr. Hwy", next: "Martin Luther King Jr. Hwy" },
+      { lat: 38.8962, lng: -76.9007, street: "Approaching Addison Rd & MLK Jr. Hwy", next: "Greig St Apartments" },
+      { lat: 38.8992, lng: -76.8998, street: "Turning onto Martin Luther King Jr. Hwy", next: "Greig St Apartments Stop" },
+      { lat: 38.9006, lng: -76.8962, street: "Heading East on Martin Luther King Jr. Hwy", next: "Greig St Apartments Stop" },
+      // Stop at Greig Street Apartments (Pleasant Homes - 6606 Greig St)
+      { lat: 38.9018, lng: -76.8950, street: "STOP: Greig Street Apartments (6606 Greig St) 🏢🎁", next: "Seat Pleasant Activity Center" },
+      // Back via MLK Jr Hwy -> Left turn onto Addison Rd -> Stop at Activity Center (5720 Addison Rd)
+      { lat: 38.8992, lng: -76.8998, street: "Left Turn onto Addison Rd from MLK Jr. Hwy", next: "Santa's Party (Activity Center)" },
+      { lat: 38.8972, lng: -76.9001, street: "FINAL STOP: Seat Pleasant Activity Center — SANTA'S PARTY! 🎉🎄", next: "Welcome to Santa's Party!" }
+    ];
+
+    const routeCoords = santaRoute.map(pt => [pt.lat, pt.lng]);
+
+    // Fit map bounds nicely to the new route
+    map.fitBounds(L.latLngBounds(routeCoords).pad(0.14));
+
+    // =========================================================================
+    // 3. FESTIVE SNOW-COVERED STREETS, CANDY-CANE PATH & WINTER VILLAGE PROPS
+    // =========================================================================
+    const festiveDecorGroup = L.layerGroup().addTo(map);
+
+    // Layer A: Outer Icy Blue Snowdrift Halo on the streets
+    L.polyline(routeCoords, {
+      color: '#38bdf8',
+      weight: 22,
+      opacity: 0.28,
+      lineCap: 'round',
+      lineJoin: 'round'
+    }).addTo(festiveDecorGroup);
+
+    // Layer B: Freshly Plowed White Snow Road Surface
+    L.polyline(routeCoords, {
+      color: '#f8fafc',
+      weight: 11,
+      opacity: 0.92,
+      lineCap: 'round',
+      lineJoin: 'round'
+    }).addTo(festiveDecorGroup);
+
+    // Layer C: Animated Red & White Candy-Cane Center Stripe
+    L.polyline(routeCoords, {
+      color: '#dc2626',
+      weight: 6,
+      dashArray: '12, 12',
+      opacity: 0.98,
+      lineCap: 'butt',
+      className: 'candy-cane-line'
+    }).addTo(map);
+
+    // Layer D: Twinkling Christmas Bulbs along every street segment
+    const bulbColors = [
+      { bg: '#ef4444', glow: '#f87171' }, // Red
+      { bg: '#22c55e', glow: '#4ade80' }, // Green
+      { bg: '#fbbf24', glow: '#fde047' }, // Gold
+      { bg: '#38bdf8', glow: '#7dd3fc' }  // Ice Blue
+    ];
+
+    routeCoords.forEach((coord, idx) => {
+      if (idx === routeCoords.length - 1) return;
+      const nextCoord = routeCoords[idx + 1];
+      // Place 2 twinkling bulbs along each road segment
+      [0.33, 0.66].forEach((t, stepIdx) => {
+        const lat = coord[0] + (nextCoord[0] - coord[0]) * t;
+        const lng = coord[1] + (nextCoord[1] - coord[1]) * t;
+        const c = bulbColors[(idx + stepIdx) % bulbColors.length];
+        const delay = ((idx * 0.25) + (stepIdx * 0.4)).toFixed(2);
+        const bulbIcon = L.divIcon({
+          className: '',
+          html: `<div class="holiday-bulb" style="background:${c.bg};box-shadow:0 0 10px 3px ${c.glow};animation-delay:${delay}s;"></div>`,
+          iconSize: [10, 10],
+          iconAnchor: [5, 5]
+        });
+        L.marker([lat, lng], { icon: bulbIcon, interactive: false }).addTo(festiveDecorGroup);
+      });
+    });
+
+    // Layer E: Festive Winter Wonderland Street Props (Snowbanks, Pine Trees, Snowmen, Candy Canes, Streetlamps)
+    const winterProps = [
+      { coords: [38.8958, -76.8975], emoji: "🎄", label: "Snowy Pine" },
+      { coords: [38.8976, -76.8968], emoji: "⛄", label: "Drylog Snowman" },
+      { coords: [38.8964, -76.9001], emoji: "🍬", label: "Candy Cane Lane" },
+      { coords: [38.8938, -76.9026], emoji: "🏮", label: "Holiday Streetlamp" },
+      { coords: [38.8913, -76.8988], emoji: "🎄", label: "Baltic St Holiday Tree" },
+      { coords: [38.8895, -76.8983], emoji: "🎁", label: "Avon St Gifts" },
+      { coords: [38.8888, -76.8952], emoji: "⛄", label: "Adak St Snowman" },
+      { coords: [38.8881, -76.8962], emoji: "🎄", label: "Central Ave Evergreen" },
+      { coords: [38.8898, -76.9022], emoji: "❄️", label: "City Hall Snowdrift" },
+      { coords: [38.8948, -76.9024], emoji: "🍬", label: "Addison Candy Cane" },
+      { coords: [38.8984, -76.9012], emoji: "🎄", label: "MLK Gateway Tree" },
+      { coords: [38.9014, -76.8975], emoji: "🦌", label: "Reindeer Crossing" },
+      { coords: [38.9022, -76.8942], emoji: "⛄", label: "Greig St Snowman" },
+      { coords: [38.8977, -76.8988], emoji: "🎊", label: "Santa's Party Archway" }
+    ];
+
+    winterProps.forEach((prop, i) => {
+      const delay = (i * 0.22).toFixed(2);
+      const propIcon = L.divIcon({
+        className: '',
+        html: `
+          <div class="winter-prop flex flex-col items-center" style="animation-delay:${delay}s;">
+            <span class="text-xl sm:text-2xl select-none">${prop.emoji}</span>
+            <span class="w-5 h-1.5 rounded-full bg-white/85 shadow-[0_0_8px_#fff] -mt-1"></span>
+          </div>
+        `,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+      });
+      L.marker(prop.coords, { icon: propIcon, interactive: false }).addTo(festiveDecorGroup);
+    });
+
+    let decorEnabled = true;
+    function toggleFestiveDecor() {
+      decorEnabled = !decorEnabled;
+      const btn = document.getElementById('btn-decor');
+      if (decorEnabled) {
+        festiveDecorGroup.addTo(map);
+        btn.textContent = '🎄 Street Decor: On';
+      } else {
+        map.removeLayer(festiveDecorGroup);
+        btn.textContent = '🎄 Street Decor: Off';
+      }
+    }
+
+    // =========================================================================
+    // 4. FEATURED ROUTE CHECKPOINT PINS
+    // =========================================================================
+    const checkpoints = [
+      {
+        name: "1. Santa HQ (START)",
+        desc: "6011 Addison Rd — Santa & SPPD Sleigh Launch",
+        coords: [38.8931, -76.9016],
+        emoji: "🚓🎅",
+        badgeColor: "border-amber-400 bg-red-950/95"
+      },
+      {
+        name: "2. Drylog St Neighborhood Loop",
+        desc: "Drylog St, Foote St & Seat Pleasant Dr Area",
+        coords: [38.8962, -76.8950],
+        emoji: "🏘️❄️",
+        badgeColor: "border-sky-400 bg-slate-900/95"
+      },
+      {
+        name: "3. Baltic, Avon & Adak Streets",
+        desc: "Southern Neighborhood Holiday Wave Loop",
+        coords: [38.8899, -76.8991],
+        emoji: "🍬🎄",
+        badgeColor: "border-sky-400 bg-slate-900/95"
+      },
+      {
+        name: "4. Seat Pleasant City Hall (STOP)",
+        desc: "6301 Addison Rd — Official City Hall Holiday Stop",
+        coords: [38.8906, -76.9012],
+        emoji: "🏛️🎄",
+        badgeColor: "border-amber-400 bg-blue-950/95"
+      },
+      {
+        name: "5. Greig Street Apartments (STOP)",
+        desc: "6606 Greig St (off MLK Jr. Hwy) — Community Stop",
+        coords: [38.9018, -76.8950],
+        emoji: "🏢🎁",
+        badgeColor: "border-amber-400 bg-emerald-950/95"
+      },
+      {
+        name: "6. Seat Pleasant Activity Center — SANTA'S PARTY! (FINALE)",
+        desc: "5720 Addison Rd — Final Stop & Holiday Celebration!",
+        coords: [38.8972, -76.9001],
+        emoji: "🎉🎅",
+        badgeColor: "border-amber-300 bg-red-900/95"
+      }
+    ];
+
+    checkpoints.forEach(cp => {
+      const icon = L.divIcon({
+        className: 'custom-checkpoint-pin',
+        html: `
+          <div class="px-2 py-1 rounded-full ${cp.badgeColor} border-2 shadow-[0_0_16px_rgba(56,189,248,0.5)] flex items-center justify-center text-sm font-bold hover:scale-110 transition whitespace-nowrap">
+            ${cp.emoji}
+          </div>
+        `,
+        iconSize: [46, 32],
+        iconAnchor: [23, 16]
+      });
+      L.marker(cp.coords, { icon }).addTo(map).bindPopup(
+        `<div class="p-1"><div class="font-bold text-amber-300 text-sm">${cp.emoji} ${cp.name}</div><div class="text-xs text-slate-200 mt-0.5">${cp.desc}</div></div>`
+      );
+    });
+
+    // =========================================================================
+    // 5. ANIMATED SANTA SLEIGH + SPPD CRUISER ESCORT MARKER
+    // =========================================================================
+    const santaEscortIcon = L.divIcon({
+      className: 'santa-escort-marker',
+      html: `
+        <div class="sleigh-float relative flex flex-col items-center">
+          <div class="px-2.5 py-0.5 rounded-full bg-slate-950/95 border border-amber-400 text-[10px] font-extrabold text-amber-300 whitespace-nowrap shadow-md mb-1">
+            🎅 SANTA &amp; SPPD ESCORT
+          </div>
+          <div class="relative w-14 h-14 rounded-2xl bg-gradient-to-b from-slate-900 to-slate-950 border-2 border-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.75)] flex items-center justify-center">
+            <!-- SPPD Flashing Lightbar -->
+            <div class="absolute -top-1.5 flex gap-1.5">
+              <span class="w-3.5 h-2 rounded-full sppd-strobe-red"></span>
+              <span class="w-3.5 h-2 rounded-full sppd-strobe-blue"></span>
+            </div>
+            <span class="text-2xl">🛷</span>
+            <span class="text-lg -ml-1">🚓</span>
+          </div>
+        </div>
+      `,
+      iconSize: [130, 76],
+      iconAnchor: [65, 42]
+    });
+
+    const santaMarker = L.marker(routeCoords[0], { icon: santaEscortIcon, zIndexOffset: 1000 }).addTo(map);
+
+    function centerOnSanta() {
+      map.flyTo(santaMarker.getLatLng(), 16, { duration: 0.8 });
+    }
+
+    // =========================================================================
+    // 6. ROUTE SIMULATOR & LIVE GEOTAB GPS POLLING
+    // =========================================================================
+    let demoInterval = null;
+    let demoIndex = 0;
+
+    function updateTelemetryUI(streetText, nextStop, speedMph, modeLabel) {
+      document.getElementById('status-headline').textContent = streetText;
+      document.getElementById('telemetry-next').textContent = nextStop;
+      document.getElementById('telemetry-speed').textContent = `${speedMph} MPH`;
+      document.getElementById('gps-badge').innerHTML = `
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> ${modeLabel}
+      `;
+    }
+
+    function toggleDemoSimulation() {
+      const btn = document.getElementById('btn-demo');
+      if (demoInterval) {
+        clearInterval(demoInterval);
+        demoInterval = null;
+        btn.textContent = '▶️ Preview Route Run';
+        santaMarker.setLatLng(routeCoords[0]);
+        updateTelemetryUI(
+          'Status: Prepping the Sleigh at Santa HQ (6011 Addison Rd)',
+          'Drylog St Neighborhood',
+          0,
+          'Santa HQ Standby'
+        );
+        return;
+      }
+
+      btn.textContent = '⏹️ Stop Preview';
+      demoIndex = 0;
+      demoInterval = setInterval(() => {
+        demoIndex = (demoIndex + 1) % santaRoute.length;
+        const stop = santaRoute[demoIndex];
+        santaMarker.setLatLng([stop.lat, stop.lng]);
+        map.panTo([stop.lat, stop.lng], { animate: true, duration: 1.1 });
+        const isStop = stop.street.includes('STOP');
+        const simulatedSpeed = isStop ? 0 : Math.floor(10 + Math.random() * 8);
+        updateTelemetryUI(stop.street, stop.next, simulatedSpeed, 'Route Preview Active');
+      }, 2400);
+    }
+
+    // Live Geotab Proxy Polling (Every 4 Seconds)
+    let geotabPollTimer = null;
+
+    function saveGeotabSettings() {
+      const proxyUrl = document.getElementById('input-geotab-url').value.trim();
+      const deviceId = document.getElementById('input-geotab-device').value.trim();
+      if (!proxyUrl) {
+        alert('Please enter your Geotab Cloudflare Worker / Proxy URL first.');
+        return;
+      }
+      if (geotabPollTimer) clearInterval(geotabPollTimer);
+
+      const fetchGeotabLocation = async () => {
+        try {
+          const url = deviceId ? `${proxyUrl}?deviceId=${encodeURIComponent(deviceId)}` : proxyUrl;
+          const res = await fetch(url);
+          const data = await res.json();
+          if (data && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+            santaMarker.setLatLng([data.latitude, data.longitude]);
+            const mph = data.speed ? Math.round(data.speed * 0.621371) : 12;
+            updateTelemetryUI(
+              data.statusText || 'Santa & SPPD Escort Live on Route!',
+              data.nextStop || 'Seat Pleasant Activity Center (Santa\'s Party)',
+              mph,
+              'Geotab Live GPS'
+            );
+          }
+        } catch (err) {
+          console.warn('Waiting for Geotab proxy response:', err);
+        }
+      };
+
+      fetchGeotabLocation();
+      geotabPollTimer = setInterval(fetchGeotabLocation, 4000);
+      toggleSetupModal();
+    }
+
+    function stopGeotabPolling() {
+      if (geotabPollTimer) {
+        clearInterval(geotabPollTimer);
+        geotabPollTimer = null;
+      }
+      alert('Geotab live polling disconnected.');
+    }
+
+    function applyCustomStatus() {
+      const text = document.getElementById('input-custom-status').value.trim();
+      if (text) {
+        document.getElementById('status-headline').textContent = text;
+        toggleSetupModal();
+      }
+    }
+
+    function toggleSetupModal() {
+      document.getElementById('setup-modal').classList.toggle('hidden');
+    }
+
+    // =========================================================================
+    // 7. EVENT COUNTDOWN TIMER (December 22, 2026 @ 6:00 PM EST)
+    // =========================================================================
+    const EVENT_TARGET = new Date('2026-12-22T18:00:00-05:00').getTime();
+
+    function updateCountdown() {
+      const now = Date.now();
+      const diff = Math.max(0, EVENT_TARGET - now);
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+      const mins = Math.floor((diff / (1000 * 60)) % 60);
+      const secs = Math.floor((diff / 1000) % 60);
+
+      document.getElementById('cd-days').textContent = String(days).padStart(2, '0');
+      document.getElementById('cd-hours').textContent = String(hours).padStart(2, '0');
+      document.getElementById('cd-mins').textContent = String(mins).padStart(2, '0');
+      document.getElementById('cd-secs').textContent = String(secs).padStart(2, '0');
+    }
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+
+    // =========================================================================
+    // 8. SYNTHESIZED WEB AUDIO API "JINGLE BELLS" HOLIDAY CHIMES
+    // =========================================================================
+    let audioCtx = null;
+    let isPlayingAudio = false;
+    let melodyTimeout = null;
+
+    const jingleMelody = [
+      [659.25, 260], [659.25, 260], [659.25, 520],
+      [659.25, 260], [659.25, 260], [659.25, 520],
+      [659.25, 260], [783.99, 260], [523.25, 380], [587.33, 140], [659.25, 800],
+      [698.46, 260], [698.46, 260], [698.46, 380], [698.46, 140],
+      [698.46, 260], [659.25, 260], [659.25, 260], [659.25, 130], [659.25, 130],
+      [659.25, 260], [587.33, 260], [587.33, 260], [659.25, 260], [587.33, 520], [783.99, 520]
+    ];
+
+    function playChimeNote(freq, durationMs) {
+      if (!audioCtx || !isPlayingAudio) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+      gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + durationMs / 1000);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + durationMs / 1000);
+    }
+
+    function loopMelody(step = 0) {
+      if (!isPlayingAudio) return;
+      const [freq, dur] = jingleMelody[step];
+      playChimeNote(freq, dur);
+      const nextStep = (step + 1) % jingleMelody.length;
+      const pause = nextStep === 0 ? 1200 : dur + 60;
+      melodyTimeout = setTimeout(() => loopMelody(nextStep), pause);
+    }
+
+    function toggleAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      isPlayingAudio = !isPlayingAudio;
+      document.getElementById('audio-icon').textContent = isPlayingAudio ? '🔔' : '🔇';
+      document.getElementById('audio-label').textContent = isPlayingAudio ? 'Holiday Radio: On' : 'Holiday Radio: Off';
+
+      if (isPlayingAudio) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        loopMelody(0);
+      } else {
+        clearTimeout(melodyTimeout);
+      }
+    }
+
+    // =========================================================================
+    // 9. INTERACTIVE WINTER WONDERLAND SNOWFALL CANVAS
+    // =========================================================================
+    const snowCanvas = document.getElementById('snow-canvas');
+    const snowCtx = snowCanvas.getContext('2d');
+    let snowEnabled = true;
+
+    function resizeSnow() {
+      snowCanvas.width = window.innerWidth;
+      snowCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeSnow);
+    resizeSnow();
+
+    const flakes = Array.from({ length: 95 }, () => ({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      r: 1.4 + Math.random() * 3.0,
+      speedY: 0.7 + Math.random() * 1.5,
+      speedX: -0.45 + Math.random() * 0.9
+    }));
+
+    function renderSnow() {
+      snowCtx.clearRect(0, 0, snowCanvas.width, snowCanvas.height);
+      if (snowEnabled) {
+        snowCtx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        snowCtx.beginPath();
+        flakes.forEach(f => {
+          snowCtx.moveTo(f.x, f.y);
+          snowCtx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+          f.y += f.speedY;
+          f.x += f.speedX;
+          if (f.y > snowCanvas.height) { f.y = -5; f.x = Math.random() * snowCanvas.width; }
+          if (f.x > snowCanvas.width) f.x = 0;
+          if (f.x < 0) f.x = snowCanvas.width;
+        });
+        snowCtx.fill();
+      }
+      requestAnimationFrame(renderSnow);
+    }
+    renderSnow();
+
+    function toggleSnow() {
+      snowEnabled = !snowEnabled;
+      document.getElementById('btn-snow').textContent = snowEnabled ? '❄️ Snow: On' : '❄️ Snow: Off';
+    }
+  </script>
+</body>
+</html>
