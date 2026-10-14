@@ -1,0 +1,1610 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>City of Seat Pleasant | SPPD Winter Wonderland Santa Run Tracker</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter & Festive Display Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Mountains+of+Christmas:wght@700&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet.js CSS & JS for Interactive Mapping -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+    <!-- Phosphor Icons for crisp UI iconography -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        :root {
+            --sp-navy: #071126;
+            --sp-ice: #38bdf8;
+            --sp-gold: #fbbf24;
+            --sp-crimson: #ef4444;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #050d1d;
+            color: #f8fafc;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .font-festive {
+            font-family: 'Mountains of Christmas', cursive;
+        }
+
+        /* Winter Wonderland Nighttime Map Filter */
+        .winter-map-tiles {
+            filter: brightness(1.08) contrast(1.12) hue-rotate(198deg) saturate(1.75);
+        }
+
+        /* Custom Leaflet Popup Styling */
+        .leaflet-popup-content-wrapper {
+            background: rgba(10, 22, 48, 0.95) !important;
+            backdrop-filter: blur(12px);
+            color: #f8fafc !important;
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            border-radius: 1rem !important;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 0 20px rgba(56, 189, 248, 0.25) !important;
+            padding: 2px !important;
+        }
+        .leaflet-popup-tip {
+            background: rgba(10, 22, 48, 0.95) !important;
+            border: 1px solid rgba(56, 189, 248, 0.35);
+        }
+        .leaflet-container a.leaflet-popup-close-button {
+            color: #94a3b8 !important;
+            font-size: 18px !important;
+            padding: 6px 8px 0 0 !important;
+        }
+        .leaflet-container a.leaflet-popup-close-button:hover {
+            color: #ffffff !important;
+        }
+
+        /* Animated Candy Cane / Gold Upcoming Route Path */
+        @keyframes routeDash {
+            to {
+                stroke-dashoffset: -40;
+            }
+        }
+        .upcoming-route-line {
+            animation: routeDash 1.6s linear infinite;
+        }
+
+        /* SPPD Police Cruiser Red & Blue Flashing Lightbar Animation */
+        @keyframes policeStrobeRed {
+            0%, 49% { opacity: 1; filter: drop-shadow(0 0 12px #ef4444) drop-shadow(0 0 22px #ef4444); transform: scale(1.15); }
+            50%, 100% { opacity: 0.2; filter: none; transform: scale(0.9); }
+        }
+        @keyframes policeStrobeBlue {
+            0%, 49% { opacity: 0.2; filter: none; transform: scale(0.9); }
+            50%, 100% { opacity: 1; filter: drop-shadow(0 0 12px #3b82f6) drop-shadow(0 0 22px #3b82f6); transform: scale(1.15); }
+        }
+        @keyframes sleighFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-4px); }
+        }
+
+        .sppd-strobe-red {
+            animation: policeStrobeRed 0.55s infinite;
+        }
+        .sppd-strobe-blue {
+            animation: policeStrobeBlue 0.55s infinite;
+        }
+        .sleigh-hover {
+            animation: sleighFloat 2.4s ease-in-out infinite;
+        }
+
+        /* Landmark Marker Pulse */
+        @keyframes landmarkPulse {
+            0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.5); }
+            70% { box-shadow: 0 0 0 12px rgba(56, 189, 248, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+        }
+        .landmark-pin-ring {
+            animation: landmarkPulse 2.5s infinite;
+        }
+
+        /* Custom Scrollbar for Sidebar & Drawer */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(56, 189, 248, 0.4);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(56, 189, 248, 0.7);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col relative overflow-hidden select-none">
+
+    <!-- TOP HUD HEADER -->
+    <header class="relative z-30 bg-slate-950/90 backdrop-blur-md border-b border-sky-500/30 shadow-2xl px-3 py-2.5 sm:px-6 sm:py-3">
+        <div class="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-2.5">
+            
+            <!-- Left: City & SPPD Branding -->
+            <div class="flex items-center justify-between w-full lg:w-auto gap-3">
+                <div class="flex items-center gap-3">
+                    <!-- Custom SPPD / Santa Shield Emblem -->
+                    <div class="relative w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-sky-900 via-slate-900 to-amber-900/60 p-0.5 border border-sky-400/50 shadow-lg shadow-sky-500/10 flex items-center justify-center shrink-0">
+                        <div class="w-full h-full bg-slate-950/90 rounded-[14px] flex items-center justify-center relative overflow-hidden">
+                            <span class="text-2xl">🛷</span>
+                            <span class="absolute top-0.5 left-1 w-2 h-2 rounded-full bg-red-500 sppd-strobe-red"></span>
+                            <span class="absolute top-0.5 right-1 w-2 h-2 rounded-full bg-blue-500 sppd-strobe-blue"></span>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] sm:text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-400/30">
+                                City of Seat Pleasant • SPPD
+                            </span>
+                            <span id="feedModeBadge" class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
+                                Pre-Event Preview
+                            </span>
+                        </div>
+                        <h1 class="text-lg sm:text-2xl font-extrabold tracking-tight text-white flex items-center gap-2 mt-0.5">
+                            <span class="font-festive text-2xl sm:text-3xl text-amber-300 drop-shadow">Winter Wonderland</span>
+                            <span class="text-sky-100 text-sm sm:text-lg font-bold">Live Santa Run Tracker</span>
+                        </h1>
+                    </div>
+                </div>
+
+                <!-- Mobile Quick Audio/Snow Buttons -->
+                <div class="flex lg:hidden items-center gap-1.5">
+                    <button id="mobileAudioBtn" onclick="toggleHolidayAudio()" class="p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-sky-300 border border-sky-500/30 transition" title="Toggle Holiday Music">
+                        <i id="mobileAudioIcon" class="ph-fill ph-speaker-slash text-lg"></i>
+                    </button>
+                    <button id="mobileSnowBtn" onclick="toggleSnowfall()" class="p-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 border border-sky-400/40 transition" title="Toggle Snowfall">
+                        <i class="ph-fill ph-snowflake text-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Center: Countdown Timer to Dec 22, 2026 @ 6:00 PM EST -->
+            <div class="w-full lg:w-auto flex flex-wrap items-center justify-between sm:justify-center gap-3 bg-slate-900/90 border border-sky-500/25 rounded-2xl px-3.5 py-1.5 shadow-inner">
+                <div class="flex items-center gap-2">
+                    <i class="ph-fill ph-calendar-star text-amber-400 text-xl"></i>
+                    <div class="text-left">
+                        <div class="text-[10px] uppercase tracking-wider text-sky-300 font-semibold">Launch Date & Time</div>
+                        <div class="text-xs sm:text-sm font-bold text-white">Dec 22, 2026 • 6:00 PM</div>
+                    </div>
+                </div>
+
+                <div class="h-6 w-px bg-slate-700 hidden sm:block"></div>
+
+                <!-- Dynamic Countdown Pill -->
+                <div id="countdownContainer" class="flex items-center gap-1.5 sm:gap-2">
+                    <div class="bg-slate-950/90 border border-slate-800 rounded-lg px-2 py-1 text-center min-w-[42px]">
+                        <span id="cdDays" class="text-xs sm:text-sm font-extrabold text-amber-300 block leading-none">--</span>
+                        <span class="text-[9px] uppercase text-slate-400 font-medium">Days</span>
+                    </div>
+                    <span class="text-sky-400 font-bold text-xs">:</span>
+                    <div class="bg-slate-950/90 border border-slate-800 rounded-lg px-2 py-1 text-center min-w-[38px]">
+                        <span id="cdHours" class="text-xs sm:text-sm font-extrabold text-sky-200 block leading-none">--</span>
+                        <span class="text-[9px] uppercase text-slate-400 font-medium">Hrs</span>
+                    </div>
+                    <span class="text-sky-400 font-bold text-xs">:</span>
+                    <div class="bg-slate-950/90 border border-slate-800 rounded-lg px-2 py-1 text-center min-w-[38px]">
+                        <span id="cdMins" class="text-xs sm:text-sm font-extrabold text-sky-200 block leading-none">--</span>
+                        <span class="text-[9px] uppercase text-slate-400 font-medium">Min</span>
+                    </div>
+                    <span class="text-sky-400 font-bold text-xs">:</span>
+                    <div class="bg-slate-950/90 border border-slate-800 rounded-lg px-2 py-1 text-center min-w-[38px]">
+                        <span id="cdSecs" class="text-xs sm:text-sm font-extrabold text-rose-400 block leading-none">--</span>
+                        <span class="text-[9px] uppercase text-slate-400 font-medium">Sec</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Interactive Map & Audio Controls -->
+            <div class="hidden lg:flex items-center gap-2">
+                <button id="desktopAudioBtn" onclick="toggleHolidayAudio()" class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-sky-500/30 text-xs font-semibold transition shadow-sm">
+                    <i id="desktopAudioIcon" class="ph-fill ph-speaker-slash text-amber-400 text-base"></i>
+                    <span id="desktopAudioLabel">Holiday Radio: Off</span>
+                </button>
+
+                <button id="desktopSnowBtn" onclick="toggleSnowfall()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 border border-sky-400/40 text-xs font-semibold transition shadow-sm">
+                    <i class="ph-fill ph-snowflake text-sky-300 text-base animate-spin" style="animation-duration: 8s;"></i>
+                    <span id="snowBtnLabel">Snow: On</span>
+                </button>
+
+                <button onclick="recenterOnSanta()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-bold shadow-lg shadow-red-600/30 transition">
+                    <i class="ph-bold ph-crosshair text-base"></i>
+                    <span>Locate Santa</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- LIVE STATUS BAR SUB-BANNER -->
+        <div class="max-w-7xl mx-auto mt-2 pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                <span class="relative flex h-3 w-3 shrink-0">
+                    <span id="statusPingOuter" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span id="statusPingInner" class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                <span class="font-bold uppercase tracking-wider text-sky-400 shrink-0">LIVE STATUS:</span>
+                <span id="liveStatusText" class="font-semibold text-white truncate">
+                    Prepping the Sleigh at SPPD Command Center (6301 Addison Rd) • Route Preview Active
+                </span>
+            </div>
+
+            <!-- Live Telemetry Pills -->
+            <div class="flex items-center gap-3 sm:gap-4 text-[11px] sm:text-xs shrink-0 w-full sm:w-auto justify-between sm:justify-end bg-slate-900/70 sm:bg-transparent px-2.5 py-1 sm:p-0 rounded-lg">
+                <div class="flex items-center gap-1.5">
+                    <i class="ph-fill ph-First-aid-kit text-rose-400 hidden"></i>
+                    <i class="ph-bold ph-navigation-arrow text-sky-400"></i>
+                    <span class="text-slate-400">Next Stop:</span>
+                    <span id="telemetryNextStop" class="font-bold text-amber-300">SPPD Launchpad</span>
+                </div>
+                <div class="h-3.5 w-px bg-slate-700"></div>
+                <div class="flex items-center gap-1.5">
+                    <i class="ph-bold ph-gauge text-emerald-400"></i>
+                    <span class="text-slate-400">Speed:</span>
+                    <span id="telemetrySpeed" class="font-bold text-white">0 MPH</span>
+                </div>
+                <div class="h-3.5 w-px bg-slate-700 hidden md:block"></div>
+                <div class="hidden md:flex items-center gap-1.5">
+                    <i class="ph-bold ph-broadcast text-sky-400"></i>
+                    <span class="text-slate-400">Geotab:</span>
+                    <span id="telemetryGeotabId" class="font-mono text-sky-300">SPPD-SLEIGH-01</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN MAP & OVERLAYS CONTAINER -->
+    <main class="relative flex-1 w-full h-full overflow-hidden">
+        
+        <!-- Leaflet Interactive Map -->
+        <div id="map" class="w-full h-full z-10"></div>
+
+        <!-- Winter Wonderland Falling Snow Canvas Overlay (Pointer-events-none so map stays clickable) -->
+        <canvas id="snowCanvas" class="absolute inset-0 pointer-events-none z-20 w-full h-full"></canvas>
+
+        <!-- Ambient Icy Vignette Glow Overlay -->
+        <div class="pointer-events-none absolute inset-0 z-20 shadow-[inset_0_0_70px_rgba(7,17,38,0.85)]"></div>
+
+        <!-- LEFT FLOATING PANEL: LANDMARK STOPS & ROUTE PROGRESS -->
+        <aside id="stopsPanel" class="absolute top-3 left-3 z-20 w-72 sm:w-80 max-h-[calc(100%-6rem)] flex flex-col bg-slate-950/85 backdrop-blur-md border border-sky-500/30 rounded-2xl shadow-2xl overflow-hidden transition-all duration-300">
+            <!-- Panel Header -->
+            <div class="px-4 py-3 bg-gradient-to-r from-slate-900 via-sky-950/70 to-slate-900 border-b border-sky-500/20 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">🎄</span>
+                    <div>
+                        <h2 class="text-xs sm:text-sm font-bold text-white leading-tight">Seat Pleasant Checkpoints</h2>
+                        <p class="text-[10px] text-sky-300">Click any stop to fly to location</p>
+                    </div>
+                </div>
+                <button onclick="toggleStopsPanel()" class="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs" title="Minimize/Expand Checkpoints">
+                    <i id="stopsToggleIcon" class="ph-bold ph-caret-up"></i>
+                </button>
+            </div>
+
+            <!-- Route Progress Bar -->
+            <div id="stopsPanelBody" class="flex flex-col overflow-hidden">
+                <div class="px-4 py-2.5 bg-slate-900/60 border-b border-slate-800/80">
+                    <div class="flex items-center justify-between text-[11px] mb-1">
+                        <span class="font-semibold text-slate-300">Sleigh Route Completion</span>
+                        <span id="routeProgressPct" class="font-bold text-amber-300">0%</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden p-0.5">
+                        <div id="routeProgressBar" class="h-full bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-500 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <div class="flex items-center justify-between mt-2 gap-1.5">
+                        <button onclick="startDemoSimulation()" id="quickSimBtn" class="flex-1 py-1.5 px-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 text-[11px] font-bold flex items-center justify-center gap-1.5 transition">
+                            <i id="quickSimIcon" class="ph-fill ph-play"></i>
+                            <span id="quickSimText">Preview Live Sleigh Run</span>
+                        </button>
+                        <button onclick="fitFullRoute()" class="py-1.5 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sky-200 text-[11px] font-semibold transition" title="Zoom to Full Route">
+                            <i class="ph-bold ph-arrows-out"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Dynamic List of 5 Seat Pleasant Landmarks -->
+                <div id="landmarkListContainer" class="p-2.5 space-y-2 overflow-y-auto max-h-64 sm:max-h-80">
+                    <!-- Populated via JS -->
+                </div>
+
+                <!-- Legend Footer -->
+                <div class="px-3.5 py-2 bg-slate-950/90 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400">
+                    <span class="flex items-center gap-1.5">
+                        <span class="w-3 h-1 rounded bg-emerald-400 inline-block"></span> Visited
+                    </span>
+                    <span class="flex items-center gap-1.5">
+                        <span class="w-3 h-1 rounded bg-amber-400 inline-block"></span> Upcoming Route
+                    </span>
+                    <span class="flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-sky-400 inline-block"></span> City Limit
+                    </span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MOBILE FLOATING QUICK ACTION BAR (Bottom Left) -->
+        <div class="flex lg:hidden absolute bottom-4 left-3 z-20 items-center gap-2">
+            <button onclick="recenterOnSanta()" class="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 text-white text-xs font-bold shadow-xl border border-red-400/40">
+                <i class="ph-bold ph-crosshair"></i>
+                <span>Follow Santa</span>
+            </button>
+            <button onclick="fitFullRoute()" class="px-3 py-2.5 rounded-2xl bg-slate-900/90 backdrop-blur-md text-sky-200 text-xs font-semibold border border-sky-500/30 shadow-xl">
+                Full Map
+            </button>
+        </div>
+
+        <!-- BOTTOM RIGHT BUTTON: GEOTAB & ADMIN DEMO CONTROL DRAWER TRIGGER -->
+        <div class="absolute bottom-4 right-3 sm:right-5 z-20 flex items-center gap-2">
+            <button onclick="toggleAdminDrawer()" class="group flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-slate-950/95 hover:bg-slate-900 text-sky-200 border border-sky-400/40 shadow-2xl backdrop-blur-md transition-all">
+                <div class="w-6 h-6 rounded-lg bg-sky-500/20 flex items-center justify-center text-amber-300 group-hover:rotate-45 transition-transform">
+                    <i class="ph-fill ph-gear-six text-base"></i>
+                </div>
+                <div class="text-left">
+                    <div class="text-[10px] uppercase tracking-wider text-sky-400 font-bold leading-none">Staff & Setup</div>
+                    <div class="text-xs font-bold text-white">Geotab / Route Simulator</div>
+                </div>
+            </button>
+        </div>
+
+        <!-- ADMIN / GEOTAB SETUP & SIMULATOR DRAWER -->
+        <div id="adminDrawer" class="hidden fixed inset-y-0 right-0 z-40 w-full max-w-md bg-slate-950/95 backdrop-blur-xl border-l border-sky-500/40 shadow-2xl flex flex-col">
+            <!-- Drawer Header -->
+            <div class="p-4 bg-gradient-to-r from-slate-900 via-sky-950 to-slate-900 border-b border-sky-500/30 flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-300">
+                        <i class="ph-fill ph-Sliders-horizontal text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm sm:text-base font-extrabold text-white">SPPD Santa Run Control Center</h3>
+                        <p class="text-[11px] text-sky-300">Test Route Simulator • Geotab GPS • CivicPlus Embed</p>
+                    </div>
+                </div>
+                <button onclick="toggleAdminDrawer()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                    <i class="ph-bold ph-x text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Drawer Tabs -->
+            <div class="grid grid-cols-3 gap-1 p-2 bg-slate-900/90 border-b border-slate-800 text-xs font-bold">
+                <button onclick="switchAdminTab('sim')" id="tabBtn-sim" class="py-2 px-2 rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/40 transition flex items-center justify-center gap-1.5">
+                    <i class="ph-fill ph-play-circle"></i> Simulator
+                </button>
+                <button onclick="switchAdminTab('geotab')" id="tabBtn-geotab" class="py-2 px-2 rounded-xl text-slate-400 hover:text-white transition flex items-center justify-center gap-1.5">
+                    <i class="ph-fill ph-gps-fix"></i> Geotab GPS
+                </button>
+                <button onclick="switchAdminTab('embed')" id="tabBtn-embed" class="py-2 px-2 rounded-xl text-slate-400 hover:text-white transition flex items-center justify-center gap-1.5">
+                    <i class="ph-fill ph-code"></i> CivicPlus Embed
+                </button>
+            </div>
+
+            <!-- Drawer Scrollable Body -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-5 text-xs">
+                
+                <!-- TAB 1: ROUTE SIMULATOR & MANUAL STATUS OVERRIDE -->
+                <div id="tabContent-sim" class="space-y-4">
+                    <div class="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/15 via-slate-900 to-rose-500/10 border border-amber-400/30 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="text-sm font-bold text-amber-300 flex items-center gap-1.5">
+                                    <i class="ph-fill ph-sparkle"></i> Interactive Sleigh Simulator
+                                </h4>
+                                <p class="text-[11px] text-slate-300 mt-0.5">Preview how Santa & the SPPD escort cruiser animate along Seat Pleasant streets.</p>
+                            </div>
+                        </div>
+
+                        <!-- Play / Pause / Reset Controls -->
+                        <div class="flex items-center gap-2">
+                            <button onclick="startDemoSimulation()" id="drawerSimPlayBtn" class="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-extrabold text-xs shadow-lg flex items-center justify-center gap-2 transition">
+                                <i id="drawerSimPlayIcon" class="ph-fill ph-play text-base"></i>
+                                <span id="drawerSimPlayLabel">Start Demo Run</span>
+                            </button>
+                            <button onclick="resetSimulation()" class="py-2.5 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold border border-slate-700 transition" title="Reset to City Hall">
+                                <i class="ph-bold ph-arrow-counter-clockwise"></i> Reset
+                            </button>
+                        </div>
+
+                        <!-- Route Scrubber Slider -->
+                        <div class="space-y-1 pt-1">
+                            <div class="flex justify-between text-[11px]">
+                                <span class="text-slate-300 font-medium">Manual Route Scrubber</span>
+                                <span id="scrubberPctLabel" class="text-amber-300 font-bold">0% Along Route</span>
+                            </div>
+                            <input id="routeScrubber" type="range" min="0" max="100" value="0" oninput="scrubRoute(this.value)" class="w-full accent-amber-400 cursor-pointer h-2 bg-slate-800 rounded-lg">
+                        </div>
+
+                        <!-- Simulation Speed Selector -->
+                        <div class="flex items-center justify-between pt-1">
+                            <span class="text-[11px] text-slate-300 font-medium">Simulation Playback Speed:</span>
+                            <div class="flex items-center gap-1">
+                                <button onclick="setSimSpeed(1)" id="speedBtn-1" class="px-2 py-1 rounded-lg bg-sky-500/30 border border-sky-400 text-sky-200 text-[10px] font-bold">1x</button>
+                                <button onclick="setSimSpeed(2)" id="speedBtn-2" class="px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 text-[10px] font-bold">2x</button>
+                                <button onclick="setSimSpeed(4)" id="speedBtn-4" class="px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 text-[10px] font-bold">4x</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Manual Status Bar & Operator Check-In Override -->
+                    <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                            <i class="ph-fill ph-megaphone"></i> Live Status Banner Override
+                        </h4>
+                        <div class="space-y-2">
+                            <label class="block text-[11px] text-slate-300">Broadcast Custom Status Message:</label>
+                            <div class="flex gap-1.5">
+                                <input id="customStatusInput" type="text" placeholder="e.g. Rolling Code 3 down Martin Luther King Jr Hwy!" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-400">
+                                <button onclick="applyCustomStatus()" class="px-3 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs transition">
+                                    Update
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Quick Checkpoint Jump Buttons -->
+                        <div class="space-y-1.5 pt-1">
+                            <span class="block text-[11px] text-slate-400">Instant Operator Jump to Checkpoint:</span>
+                            <div id="operatorJumpButtons" class="grid grid-cols-1 gap-1.5">
+                                <!-- Populated via JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Add / Edit Custom Landmark Pin or Route JSON -->
+                    <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                                <i class="ph-fill ph-map-pin-line"></i> Add / Edit Seat Pleasant Pins
+                            </h4>
+                            <button onclick="exportConfigJSON()" class="text-[10px] font-bold px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-500/30">
+                                Copy Route JSON
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <input id="newPinName" type="text" placeholder="Pin Title (e.g. Ward 4 Stop)" class="col-span-2 bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white">
+                            <input id="newPinSub" type="text" placeholder="Subtitle / Activity" class="bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white">
+                            <input id="newPinAddress" type="text" placeholder="Street Address" class="bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white">
+                            <input id="newPinLat" type="number" step="0.0001" placeholder="Lat (38.8946)" class="bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white">
+                            <input id="newPinLng" type="number" step="0.0001" placeholder="Lng (-76.9015)" class="bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="addCustomPinFromForm()" class="flex-1 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 font-bold text-xs transition">
+                                + Add Landmark Pin to Map
+                            </button>
+                            <button onclick="enableMapClickPinMode()" id="pickOnMapBtn" class="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-300 font-semibold text-xs border border-slate-700 transition" title="Click on map to grab coordinates">
+                                <i class="ph-bold ph-crosshair-simple"></i> Pick on Map
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: GEOTAB LIVE GPS CONFIGURATION -->
+                <div id="tabContent-geotab" class="hidden space-y-4">
+                    <div class="p-3.5 rounded-2xl bg-sky-950/40 border border-sky-500/30 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-extrabold text-sky-300 uppercase tracking-wider flex items-center gap-1.5">
+                                <i class="ph-fill ph-satellite"></i> Geotab AVL Fleet Integration
+                            </span>
+                            <span id="geotabConnectionPill" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30">
+                                Standby / Simulator
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-slate-300 leading-relaxed">
+                            Connect your SPPD escort cruiser or city vehicle equipped with Geotab GO hardware. The map polls <code class="text-sky-300 bg-slate-900 px-1 py-0.5 rounded">DeviceStatusInfo</code> every 5 seconds for real-time latitude, longitude, bearing, and speed.
+                        </p>
+                    </div>
+
+                    <!-- Geotab Connection Form -->
+                    <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-300 mb-1">Geotab Vehicle Device ID (Escort Cruiser)</label>
+                            <input id="geotabDeviceIdInput" type="text" value="b1A4" placeholder="e.g. b1A4 or SPPD-CRUISER-12" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono">
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-300 mb-1">Read-Only Proxy / Feed Endpoint URL</label>
+                            <input id="geotabEndpointInput" type="url" placeholder="https://api.seatpleasantmd.gov/santa-geotab-feed.json" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono">
+                            <p class="text-[10px] text-slate-400 mt-1">
+                                Accepts JSON with <code class="text-sky-300">{ latitude, longitude, speed, bearing, status }</code> or raw Geotab <code class="text-sky-300">DeviceStatusInfo</code> result array.
+                            </p>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-300 mb-1">Poll Interval (Sec)</label>
+                                <input id="geotabPollInput" type="number" min="2" max="60" value="5" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                            </div>
+                            <div class="flex items-end">
+                                <button onclick="toggleLiveGeotabPolling()" id="geotabToggleBtn" class="w-full py-2 px-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold text-xs transition shadow-md">
+                                    Enable Live Polling
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ready-to-Use Cloudflare Worker / Node Proxy Snippet for Geotab -->
+                    <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-amber-300">Geotab Read-Only Proxy Script (20 Lines)</span>
+                            <button onclick="copyCodeBlock('geotabWorkerCode')" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 text-[10px] font-bold">
+                                Copy Script
+                            </button>
+                        </div>
+                        <p class="text-[10px] text-slate-400">
+                            Deploy this tiny serverless worker so your MyGeotab password stays private while feeding the public map:
+                        </p>
+                        <pre id="geotabWorkerCode" class="bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-[10px] font-mono text-sky-200 overflow-x-auto leading-relaxed">// Geotab Get&lt;DeviceStatusInfo&gt; Public Map Proxy
+export default {
+  async fetch(req, env) {
+    const res = await fetch(`https://${env.GEOTAB_SERVER}/apiv1`, {
+      method: "POST",
+      body: JSON.stringify({
+        method: "Get",
+        params: {
+          typeName: "DeviceStatusInfo",
+          search: { deviceSearch: { id: env.SPPD_DEVICE_ID } },
+          credentials: {
+            database: env.GEOTAB_DB,
+            userName: env.GEOTAB_USER,
+            sessionId: env.GEOTAB_SESSION
+          }
+        }
+      })
+    });
+    const { result } = await res.json();
+    const d = result[0] || {};
+    return new Response(JSON.stringify({
+      latitude: d.latitude,
+      longitude: d.longitude,
+      speed: Math.round((d.speed || 0) * 0.621371), // km/h to MPH
+      bearing: d.bearing || 0,
+      isDriving: d.isDriving,
+      updatedAt: d.dateTime
+    }), { headers: { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" }});
+  }
+};</pre>
+                    </div>
+                </div>
+
+                <!-- TAB 3: CIVICPLUS WEBSITE EMBED CODE -->
+                <div id="tabContent-embed" class="hidden space-y-4">
+                    <div class="p-3.5 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 space-y-2">
+                        <h4 class="text-xs font-extrabold uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
+                            <i class="ph-fill ph-check-circle"></i> Recommended for CivicPlus CMS
+                        </h4>
+                        <p class="text-[11px] text-slate-300 leading-relaxed">
+                            Paste the responsive <code class="text-emerald-300">&lt;iframe&gt;</code> snippet below into any <strong>CivicPlus Custom HTML Widget</strong> or Page Editor source view on <span class="text-white font-semibold">seatpleasantmd.gov</span>.
+                        </p>
+                    </div>
+
+                    <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-white">Responsive CivicPlus Iframe Snippet</span>
+                            <button onclick="copyCodeBlock('civicPlusEmbedCode')" class="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[11px] font-extrabold transition">
+                                Copy Embed Code
+                            </button>
+                        </div>
+                        <pre id="civicPlusEmbedCode" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-[10px] font-mono text-emerald-300 overflow-x-auto leading-relaxed">&lt;!-- City of Seat Pleasant Winter Wonderland Santa Tracker --&gt;
+&lt;div style="position:relative;width:100%;height:720px;max-height:85vh;border-radius:18px;overflow:hidden;box-shadow:0 20px 35px rgba(0,0,0,0.45);border:2px solid #0284c7;"&gt;
+  &lt;iframe 
+    src="https://santa.seatpleasantmd.gov/index.html" 
+    title="City of Seat Pleasant Live Santa Run Tracker"
+    style="width:100%;height:100%;border:0;" 
+    allow="geolocation; autoplay" 
+    loading="lazy"&gt;
+  &lt;/iframe&gt;
+&lt;/div&gt;</pre>
+                    </div>
+
+                    <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2">
+                        <h5 class="text-xs font-bold text-amber-300">When Your Final Route Is Ready:</h5>
+                        <ol class="text-[11px] text-slate-300 space-y-1.5 list-decimal list-inside">
+                            <li>Send over the street list or turn-by-turn stops in Seat Pleasant.</li>
+                            <li>Or use the <strong>"Pick on Map"</strong> tool in the Simulator tab to click intersections along the route.</li>
+                            <li>We will update the <code class="text-sky-300">SANTA_ROUTE_COORDS</code> array so the glowing candy-cane & gold path follows every exact street.</li>
+                        </ol>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Drawer Footer Status -->
+            <div class="p-3 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+                <span>Last GPS Ping: <strong id="drawerLastPing" class="text-sky-300">Pre-Event Standby</strong></span>
+                <button onclick="toggleAdminDrawer()" class="text-sky-400 hover:text-sky-300 font-bold">Done</button>
+            </div>
+        </div>
+
+        <!-- NON-BLOCKING TOAST NOTIFICATION -->
+        <div id="toastNotification" class="pointer-events-none fixed bottom-20 left-1/2 -translate-x-1/2 z-50 opacity-0 translate-y-3 transition-all duration-300 bg-slate-900/95 border border-sky-400/50 text-white px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs font-semibold backdrop-blur-md">
+            <i class="ph-fill ph-sparkle text-amber-400 text-base"></i>
+            <span id="toastMessage">Notification</span>
+        </div>
+
+    </main>
+
+    <!-- APPLICATION JAVASCRIPT -->
+    <script>
+        const SEAT_PLEASANT_CENTER = [38.8946, -76.9015];
+
+        // 5 Custom Winter Wonderland Landmark Pins in Seat Pleasant, MD
+        let LANDMARK_PINS = [
+            {
+                id: 'city-hall',
+                stopNumber: 1,
+                name: "Seat Pleasant City Hall",
+                subtitle: "Santa's Command Center & Launchpad",
+                address: "6301 Addison Rd, Seat Pleasant, MD 20743",
+                coords: [38.8939, -76.8995],
+                emoji: "🏛️",
+                badgeColor: "from-amber-400 to-amber-600",
+                eta: "6:00 PM EST",
+                description: "Official kickoff point! Mayor, City Council, and SPPD escort units launch the Winter Wonderland sleigh convoy."
+            },
+            {
+                id: 'sppd-hq',
+                stopNumber: 2,
+                name: "Seat Pleasant Police Dept HQ",
+                subtitle: "Reindeer & Cruiser Staging Area",
+                address: "601 Addison Rd S, Seat Pleasant, MD 20743",
+                coords: [38.8878, -76.8988],
+                emoji: "🚓",
+                badgeColor: "from-sky-400 to-blue-600",
+                eta: "6:15 PM EST",
+                description: "SPPD cruisers light up Code 3 with red & blue holiday beacons to escort Santa north through Seat Pleasant neighborhoods."
+            },
+            {
+                id: 'activity-center',
+                stopNumber: 3,
+                name: "Seat Pleasant Activity Center",
+                subtitle: "Holiday Treats & Hot Cocoa Hub",
+                address: "5720 Addison Rd, Seat Pleasant, MD 20743",
+                coords: [38.8992, -76.9012],
+                emoji: "☕",
+                badgeColor: "from-rose-400 to-red-600",
+                eta: "6:35 PM EST",
+                description: "Wave to Santa and the elves! Holiday music, community cheer, and festive winter lights along Addison Road."
+            },
+            {
+                id: 'elementary-school',
+                stopNumber: 4,
+                name: "Seat Pleasant Elementary School",
+                subtitle: "North Pole Express Checkpoint",
+                address: "6411 G St, Seat Pleasant, MD 20743",
+                coords: [38.8960, -76.9062],
+                emoji: "🎁",
+                badgeColor: "from-emerald-400 to-teal-600",
+                eta: "6:55 PM EST",
+                description: "Neighborhood slow-roll through residential streets around G St, F St, and Martin Luther King Jr. Hwy."
+            },
+            {
+                id: 'goodwin-park',
+                stopNumber: 5,
+                name: "Goodwin Park",
+                subtitle: "Winter Wonderland Grand Finale Stop",
+                address: "6155 Central Ave, Seat Pleasant, MD 20743",
+                coords: [38.8898, -76.9082],
+                emoji: "🎄",
+                badgeColor: "from-purple-400 to-indigo-600",
+                eta: "7:15 PM EST",
+                description: "Final community stop along Central Ave before Santa heads back to the North Pole!"
+            }
+        ];
+
+        // Placeholder Seat Pleasant Street Route (Easily replaceable when final route is determined)
+        let SANTA_ROUTE_WAYPOINTS = [
+            { coords: [38.8939, -76.8995], street: "6301 Addison Rd (City Hall Launchpad)", stopId: 'city-hall' },
+            { coords: [38.8915, -76.8991], street: "Addison Rd Southbound", stopId: null },
+            { coords: [38.8895, -76.8989], street: "Addison Rd & Central Ave Corridor", stopId: null },
+            { coords: [38.8878, -76.8988], street: "601 Addison Rd S (SPPD Headquarters)", stopId: 'sppd-hq' },
+            { coords: [38.8902, -76.8992], street: "Addison Rd Northbound Escort", stopId: null },
+            { coords: [38.8939, -76.8995], street: "Passing Seat Pleasant City Hall", stopId: null },
+            { coords: [38.8968, -76.9004], street: "Addison Rd & E Street Neighborhood", stopId: null },
+            { coords: [38.8992, -76.9012], street: "5720 Addison Rd (Activity Center Hub)", stopId: 'activity-center' },
+            { coords: [38.9005, -76.9035], street: "Martin Luther King Jr Hwy Westbound", stopId: null },
+            { coords: [38.8985, -76.9058], street: "65th Ave & Greig St Residential Loop", stopId: null },
+            { coords: [38.8960, -76.9062], street: "6411 G St (Seat Pleasant Elementary)", stopId: 'elementary-school' },
+            { coords: [38.8942, -76.9085], street: "68th Pl & F Street Winter Loop", stopId: null },
+            { coords: [38.8920, -76.9092], street: "Eastern Ave Border & Wasp Ln", stopId: null },
+            { coords: [38.8898, -76.9082], street: "6155 Central Ave (Goodwin Park Finale)", stopId: 'goodwin-park' },
+            { coords: [38.8912, -76.9038], street: "Central Ave & 64th Ave Return", stopId: null },
+            { coords: [38.8939, -76.8995], street: "6301 Addison Rd (Mission Complete at City Hall)", stopId: 'city-hall' }
+        ];
+
+        // Approximate City of Seat Pleasant Boundary Polygon for subtle glowing border
+        const SEAT_PLEASANT_BOUNDARY = [
+            [38.9032, -76.9022],
+            [38.9010, -76.8965],
+            [38.8945, -76.8955],
+            [38.8862, -76.8968],
+            [38.8872, -76.9045],
+            [38.8895, -76.9118],
+            [38.8952, -76.9125],
+            [38.9008, -76.9078]
+        ];
+
+        let map;
+        let santaMarker;
+        let visitedPolyline;
+        let upcomingPolyline;
+        let glowPolyline;
+        let landmarkMarkers = [];
+        let denseRoutePoints = [];
+
+        // Simulation & Tracking State
+        let simInterval = null;
+        let isSimulating = false;
+        let simProgressIndex = 0;
+        let simSpeedMultiplier = 1;
+        let followSantaMode = false;
+        let mapClickPickMode = false;
+
+        // Geotab Live Polling State
+        let geotabPollTimer = null;
+        let isGeotabPolling = false;
+
+        function initMap() {
+            map = L.map('map', {
+                center: SEAT_PLEASANT_CENTER,
+                zoom: 15,
+                zoomControl: false,
+                attributionControl: true
+            });
+
+            // Position zoom control on top-right so left checkpoint panel has room
+            L.control.zoom({ position: 'topright' }).addTo(map);
+
+            // CartoDB Dark Matter Tiles styled with our Winter Wonderland CSS filter
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap &copy; CARTO | City of Seat Pleasant',
+                subdomains: 'abcd',
+                maxZoom: 19,
+                className: 'winter-map-tiles'
+            }).addTo(map);
+
+            // Subtle Seat Pleasant City Boundary Frost Halo
+            L.polygon(SEAT_PLEASANT_BOUNDARY, {
+                color: '#38bdf8',
+                weight: 2,
+                opacity: 0.45,
+                dashArray: '6, 8',
+                fillColor: '#0284c7',
+                fillOpacity: 0.05
+            }).addTo(map);
+
+            // Build smooth interpolated points along the placeholder route for silky animation
+            buildInterpolatedRoute();
+
+            // Draw Route Polylines
+            drawRouteLines();
+
+            // Render Custom Landmark Pins
+            renderLandmarkPins();
+
+            // Create Animated Santa + SPPD Escort Cruiser Marker
+            createSantaCruiserMarker();
+
+            // Map click listener for "Pick on Map" coordinate helper
+            map.on('click', function(e) {
+                if (mapClickPickMode) {
+                    document.getElementById('newPinLat').value = e.latlng.lat.toFixed(4);
+                    document.getElementById('newPinLng').value = e.latlng.lng.toFixed(4);
+                    mapClickPickMode = false;
+                    document.getElementById('pickOnMapBtn').classList.remove('bg-amber-500', 'text-slate-950');
+                    showToast(`Picked coordinates: ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`);
+                }
+            });
+        }
+
+        function buildInterpolatedRoute() {
+            denseRoutePoints = [];
+            const stepsPerSegment = 28;
+            for (let i = 0; i < SANTA_ROUTE_WAYPOINTS.length - 1; i++) {
+                const start = SANTA_ROUTE_WAYPOINTS[i];
+                const end = SANTA_ROUTE_WAYPOINTS[i + 1];
+                for (let s = 0; s < stepsPerSegment; s++) {
+                    const t = s / stepsPerSegment;
+                    const lat = start.coords[0] + (end.coords[0] - start.coords[0]) * t;
+                    const lng = start.coords[1] + (end.coords[1] - start.coords[1]) * t;
+                    denseRoutePoints.push({
+                        coords: [lat, lng],
+                        street: t < 0.5 ? start.street : end.street,
+                        waypointIndex: i
+                    });
+                }
+            }
+            const last = SANTA_ROUTE_WAYPOINTS[SANTA_ROUTE_WAYPOINTS.length - 1];
+            denseRoutePoints.push({
+                coords: last.coords,
+                street: last.street,
+                waypointIndex: SANTA_ROUTE_WAYPOINTS.length - 1
+            });
+        }
+
+        function drawRouteLines() {
+            if (glowPolyline) map.removeLayer(glowPolyline);
+            if (upcomingPolyline) map.removeLayer(upcomingPolyline);
+            if (visitedPolyline) map.removeLayer(visitedPolyline);
+
+            const allCoords = denseRoutePoints.map(p => p.coords);
+
+            // Outer Icy Gold Glow Halo
+            glowPolyline = L.polyline(allCoords, {
+                color: '#fbbf24',
+                weight: 10,
+                opacity: 0.2,
+                lineCap: 'round',
+                lineJoin: 'round'
+            }).addTo(map);
+
+            // Candy-Cane Red Base + Animated Gold Dash Upcoming Route
+            upcomingPolyline = L.polyline(allCoords, {
+                color: '#fbbf24',
+                weight: 4,
+                opacity: 0.9,
+                dashArray: '10, 10',
+                className: 'upcoming-route-line'
+            }).addTo(map);
+
+            // Completed/Visited Emerald Sleigh Trail
+            visitedPolyline = L.polyline([allCoords[0]], {
+                color: '#34d399',
+                weight: 5,
+                opacity: 0.95
+            }).addTo(map);
+        }
+
+        function createSantaCruiserMarker() {
+            const santaIconHtml = `
+                <div class="relative flex flex-col items-center justify-center w-24 h-24 -mt-4 pointer-events-auto">
+                    <!-- Floating Callout Pill Above Marker -->
+                    <div class="px-2 py-0.5 rounded-full bg-slate-950/95 border border-amber-400/80 text-[10px] font-extrabold text-amber-300 shadow-lg whitespace-nowrap mb-1 flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span>
+                        <span>SANTA + SPPD</span>
+                    </div>
+
+                    <!-- Main Animated Sleigh + Police Escort Badge -->
+                    <div class="relative w-14 h-14 rounded-2xl bg-gradient-to-b from-slate-900 via-sky-950 to-slate-950 border-2 border-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.55)] flex items-center justify-center sleigh-hover">
+                        <!-- Flashing Red & Blue SPPD Police Lightbars -->
+                        <div class="absolute -top-1.5 left-2 w-4 h-2 rounded-full bg-red-500 sppd-strobe-red"></div>
+                        <div class="absolute -top-1.5 right-2 w-4 h-2 rounded-full bg-blue-500 sppd-strobe-blue"></div>
+
+                        <!-- Sleigh & Cruiser Iconography -->
+                        <div class="flex items-center justify-center gap-0.5 text-2xl select-none">
+                            <span>🛷</span>
+                            <span class="text-lg -ml-1">🚓</span>
+                        </div>
+                    </div>
+
+                    <!-- Ground Beacon Ring -->
+                    <div class="w-8 h-2.5 rounded-full bg-amber-400/40 blur-[2px] -mt-1"></div>
+                </div>
+            `;
+
+            const customDivIcon = L.divIcon({
+                html: santaIconHtml,
+                className: 'bg-transparent border-0',
+                iconSize: [96, 96],
+                iconAnchor: [48, 56],
+                popupAnchor: [0, -48]
+            });
+
+            santaMarker = L.marker(SANTA_ROUTE_WAYPOINTS[0].coords, {
+                icon: customDivIcon,
+                zIndexOffset: 1000
+            }).addTo(map);
+
+            santaMarker.bindPopup(buildSantaPopupHTML("Prepping Sleigh at City Hall", 0));
+        }
+
+        function buildSantaPopupHTML(streetName, speedMph) {
+            return `
+                <div class="p-3 min-w-[230px]">
+                    <div class="flex items-center gap-2 border-b border-slate-700/80 pb-2 mb-2">
+                        <span class="text-2xl">🎅</span>
+                        <div>
+                            <div class="text-[10px] font-bold uppercase tracking-wider text-sky-400">SPPD Escort Unit #1</div>
+                            <div class="text-sm font-extrabold text-white">Santa's Winter Sleigh</div>
+                        </div>
+                    </div>
+                    <div class="space-y-1 text-xs">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Location:</span>
+                            <span class="font-bold text-amber-300 text-right ml-2">${streetName}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Cruiser Speed:</span>
+                            <span class="font-bold text-emerald-400">${speedMph} MPH</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Escort Status:</span>
+                            <span class="font-semibold text-sky-300">Code 3 Holiday Glow</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderLandmarkPins() {
+            // Clear existing markers
+            landmarkMarkers.forEach(m => map.removeLayer(m));
+            landmarkMarkers = [];
+
+            const listContainer = document.getElementById('landmarkListContainer');
+            const operatorJumpContainer = document.getElementById('operatorJumpButtons');
+            listContainer.innerHTML = '';
+            operatorJumpContainer.innerHTML = '';
+
+            LANDMARK_PINS.forEach((pin, idx) => {
+                const pinHtml = `
+                    <div class="relative flex flex-col items-center group cursor-pointer">
+                        <div class="w-10 h-10 rounded-2xl bg-gradient-to-br ${pin.badgeColor} p-0.5 shadow-lg landmark-pin-ring transition-transform group-hover:scale-110">
+                            <div class="w-full h-full bg-slate-950/90 rounded-[14px] flex items-center justify-center relative">
+                                <span class="text-lg">${pin.emoji}</span>
+                                <span class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-slate-900 border border-sky-400 text-[9px] font-extrabold text-sky-200 flex items-center justify-center">
+                                    ${pin.stopNumber}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="mt-1 px-2 py-0.5 rounded-md bg-slate-950/90 border border-sky-500/40 text-[10px] font-bold text-sky-100 whitespace-nowrap shadow">
+                            ${pin.name}
+                        </div>
+                    </div>
+                `;
+
+                const icon = L.divIcon({
+                    html: pinHtml,
+                    className: 'bg-transparent border-0',
+                    iconSize: [120, 64],
+                    iconAnchor: [60, 24],
+                    popupAnchor: [0, -20]
+                });
+
+                const marker = L.marker(pin.coords, { icon }).addTo(map);
+
+                const popupContent = `
+                    <div class="p-3 max-w-[250px]">
+                        <div class="flex items-center justify-between gap-2 mb-1.5">
+                            <span class="px-2 py-0.5 rounded-full bg-sky-500/20 border border-sky-400/40 text-[10px] font-bold text-sky-300">
+                                Checkpoint #${pin.stopNumber}
+                            </span>
+                            <span class="text-[10px] font-bold text-amber-300">ETA: ${pin.eta}</span>
+                        </div>
+                        <h3 class="text-sm font-extrabold text-white flex items-center gap-1.5">
+                            <span>${pin.emoji}</span>
+                            <span>${pin.name}</span>
+                        </h3>
+                        <div class="text-[11px] font-semibold text-sky-300 mt-0.5">${pin.subtitle}</div>
+                        <div class="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                            <i class="ph-fill ph-map-pin text-rose-400"></i>
+                            <span>${pin.address}</span>
+                        </div>
+                        <p class="text-[11px] text-slate-300 mt-2 leading-relaxed border-t border-slate-800 pt-2">
+                            ${pin.description}
+                        </p>
+                    </div>
+                `;
+                marker.bindPopup(popupContent);
+                landmarkMarkers.push(marker);
+
+                // Add Card to Left Floating Panel
+                const card = document.createElement('div');
+                card.className = "p-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800/90 border border-slate-800 hover:border-sky-500/40 cursor-pointer transition flex items-start gap-2.5";
+                card.onclick = () => focusLandmark(idx);
+                card.innerHTML = `
+                    <div class="w-8 h-8 rounded-xl bg-gradient-to-br ${pin.badgeColor} flex items-center justify-center text-base shrink-0 shadow">
+                        ${pin.emoji}
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center justify-between gap-1">
+                            <span class="text-xs font-bold text-white truncate">${pin.stopNumber}. ${pin.name}</span>
+                            <span class="text-[10px] font-semibold text-amber-300 shrink-0">${pin.eta.replace(' EST', '')}</span>
+                        </div>
+                        <p class="text-[10px] text-sky-300 truncate">${pin.subtitle}</p>
+                        <p class="text-[10px] text-slate-400 truncate mt-0.5">${pin.address}</p>
+                    </div>
+                `;
+                listContainer.appendChild(card);
+
+                // Add Quick Operator Jump Button inside Admin Drawer
+                const jumpBtn = document.createElement('button');
+                jumpBtn.className = "w-full py-1.5 px-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left text-[11px] flex items-center justify-between transition";
+                jumpBtn.onclick = () => jumpSantaToLandmark(pin);
+                jumpBtn.innerHTML = `
+                    <span class="font-semibold text-slate-200">${pin.emoji} Stop #${pin.stopNumber}: ${pin.name}</span>
+                    <span class="text-[10px] text-sky-400 font-bold">Teleport →</span>
+                `;
+                operatorJumpContainer.appendChild(jumpBtn);
+            });
+        }
+
+        function focusLandmark(index) {
+            const pin = LANDMARK_PINS[index];
+            const marker = landmarkMarkers[index];
+            if (!pin || !marker) return;
+            map.flyTo(pin.coords, 16, { duration: 1.1 });
+            marker.openPopup();
+        }
+
+        function startDemoSimulation() {
+            if (isSimulating) {
+                pauseDemoSimulation();
+                return;
+            }
+
+            isSimulating = true;
+            updateSimUIState(true);
+            showToast("Simulating Live SPPD & Santa Sleigh Run across Seat Pleasant!");
+
+            if (simProgressIndex >= denseRoutePoints.length - 1) {
+                simProgressIndex = 0;
+            }
+
+            runSimulationTick();
+        }
+
+        function runSimulationTick() {
+            if (simInterval) clearInterval(simInterval);
+
+            const tickMs = Math.max(40, Math.round(160 / simSpeedMultiplier));
+            simInterval = setInterval(() => {
+                if (!isSimulating) return;
+
+                simProgressIndex++;
+                if (simProgressIndex >= denseRoutePoints.length) {
+                    simProgressIndex = denseRoutePoints.length - 1;
+                    updateSantaPositionByIndex(simProgressIndex, 0);
+                    pauseDemoSimulation();
+                    document.getElementById('liveStatusText').textContent = "Santa Run Complete! Safe Return to Seat Pleasant City Hall 🎄";
+                    showToast("Santa has completed the Seat Pleasant Winter Wonderland Route!");
+                    return;
+                }
+
+                // Simulated cruising speed between 14 and 22 MPH
+                const simulatedSpeed = 14 + Math.floor(Math.sin(simProgressIndex * 0.25) * 4 + 4);
+                updateSantaPositionByIndex(simProgressIndex, simulatedSpeed);
+            }, tickMs);
+        }
+
+        function pauseDemoSimulation() {
+            isSimulating = false;
+            if (simInterval) clearInterval(simInterval);
+            updateSimUIState(false);
+        }
+
+        function resetSimulation() {
+            pauseDemoSimulation();
+            simProgressIndex = 0;
+            updateSantaPositionByIndex(0, 0);
+            document.getElementById('liveStatusText').textContent = "Prepping the Sleigh at SPPD Command Center (6301 Addison Rd) • Route Preview Active";
+            document.getElementById('feedModeBadge').innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span> Pre-Event Preview`;
+            map.flyTo(SANTA_ROUTE_WAYPOINTS[0].coords, 15, { duration: 1 });
+            showToast("Reset Santa Sleigh to Seat Pleasant City Hall");
+        }
+
+        function scrubRoute(pctValue) {
+            const pct = Number(pctValue);
+            const targetIndex = Math.min(
+                denseRoutePoints.length - 1,
+                Math.floor((pct / 100) * (denseRoutePoints.length - 1))
+            );
+            simProgressIndex = targetIndex;
+            updateSantaPositionByIndex(targetIndex, isSimulating ? 18 : 0);
+        }
+
+        function setSimSpeed(multiplier) {
+            simSpeedMultiplier = multiplier;
+            [1, 2, 4].forEach(spd => {
+                const btn = document.getElementById(`speedBtn-${spd}`);
+                if (spd === multiplier) {
+                    btn.className = "px-2 py-1 rounded-lg bg-sky-500/30 border border-sky-400 text-sky-200 text-[10px] font-bold";
+                } else {
+                    btn.className = "px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 text-[10px] font-bold";
+                }
+            });
+            if (isSimulating) {
+                runSimulationTick();
+            }
+        }
+
+        function updateSantaPositionByIndex(index, speedMph) {
+            const pt = denseRoutePoints[index];
+            if (!pt) return;
+
+            // Move Marker
+            santaMarker.setLatLng(pt.coords);
+            santaMarker.setPopupContent(buildSantaPopupHTML(pt.street, speedMph));
+
+            if (followSantaMode) {
+                map.panTo(pt.coords, { animate: true, duration: 0.25 });
+            }
+
+            // Update Visited Emerald Trail
+            const visitedSlice = denseRoutePoints.slice(0, index + 1).map(p => p.coords);
+            visitedPolyline.setLatLngs(visitedSlice);
+
+            // Calculate Percentage
+            const pct = Math.round((index / (denseRoutePoints.length - 1)) * 100);
+            document.getElementById('routeProgressPct').textContent = `${pct}%`;
+            document.getElementById('routeProgressBar').style.width = `${pct}%`;
+            document.getElementById('routeScrubber').value = pct;
+            document.getElementById('scrubberPctLabel').textContent = `${pct}% Along Route`;
+
+            // Determine Next Stop
+            let nextStopName = "City Hall Return";
+            if (pct < 20) nextStopName = "SPPD HQ (601 Addison Rd S)";
+            else if (pct < 48) nextStopName = "Activity Center (5720 Addison Rd)";
+            else if (pct < 72) nextStopName = "Seat Pleasant Elem (6411 G St)";
+            else if (pct < 88) nextStopName = "Goodwin Park (6155 Central Ave)";
+
+            // Update Telemetry Bar
+            document.getElementById('liveStatusText').textContent =
+                speedMph > 0
+                    ? `Rolling Code 3 with Santa • Currently on ${pt.street}`
+                    : `Positioned at ${pt.street}`;
+            document.getElementById('telemetryNextStop').textContent = nextStopName;
+            document.getElementById('telemetrySpeed').textContent = `${speedMph} MPH`;
+
+            const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            document.getElementById('drawerLastPing').textContent = nowStr;
+        }
+
+        function updateSimUIState(running) {
+            const quickIcon = document.getElementById('quickSimIcon');
+            const quickText = document.getElementById('quickSimText');
+            const drawerIcon = document.getElementById('drawerSimPlayIcon');
+            const drawerLabel = document.getElementById('drawerSimPlayLabel');
+            const badge = document.getElementById('feedModeBadge');
+
+            if (running) {
+                quickIcon.className = "ph-fill ph-pause";
+                quickText.textContent = "Pause Sleigh Demo";
+                drawerIcon.className = "ph-fill ph-pause text-base";
+                drawerLabel.textContent = "Pause Simulation";
+                badge.className = "text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 flex items-center gap-1";
+                badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> Live Demo Active`;
+            } else {
+                quickIcon.className = "ph-fill ph-play";
+                quickText.textContent = "Preview Live Sleigh Run";
+                drawerIcon.className = "ph-fill ph-play text-base";
+                drawerLabel.textContent = "Resume Demo Run";
+            }
+        }
+
+        function jumpSantaToLandmark(pin) {
+            pauseDemoSimulation();
+            // Find closest route point to this landmark
+            let bestIdx = 0;
+            let bestDist = Infinity;
+            denseRoutePoints.forEach((pt, idx) => {
+                const d = Math.hypot(pt.coords[0] - pin.coords[0], pt.coords[1] - pin.coords[1]);
+                if (d < bestDist) {
+                    bestDist = d;
+                    bestIdx = idx;
+                }
+            });
+            simProgressIndex = bestIdx;
+            updateSantaPositionByIndex(bestIdx, 0);
+            document.getElementById('liveStatusText').textContent = `Arrived at Checkpoint #${pin.stopNumber}: ${pin.name} (${pin.address})`;
+            map.flyTo(pin.coords, 16, { duration: 1 });
+            showToast(`Updated Santa location to ${pin.name}`);
+        }
+
+        function applyCustomStatus() {
+            const input = document.getElementById('customStatusInput');
+            const text = input.value.trim();
+            if (!text) return;
+            document.getElementById('liveStatusText').textContent = text;
+            input.value = '';
+            showToast("Live status banner updated!");
+        }
+
+        function toggleLiveGeotabPolling() {
+            const btn = document.getElementById('geotabToggleBtn');
+            const pill = document.getElementById('geotabConnectionPill');
+            const deviceId = document.getElementById('geotabDeviceIdInput').value.trim() || 'SPPD-SLEIGH-01';
+            const endpoint = document.getElementById('geotabEndpointInput').value.trim();
+            const pollSec = Math.max(2, Number(document.getElementById('geotabPollInput').value) || 5);
+
+            document.getElementById('telemetryGeotabId').textContent = deviceId;
+
+            if (isGeotabPolling) {
+                isGeotabPolling = false;
+                if (geotabPollTimer) clearInterval(geotabPollTimer);
+                btn.textContent = "Enable Live Polling";
+                btn.className = "w-full py-2 px-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold text-xs transition shadow-md";
+                pill.textContent = "Standby / Simulator";
+                pill.className = "px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30";
+                showToast("Geotab live polling paused.");
+                return;
+            }
+
+            if (!endpoint) {
+                showToast("Enter your Geotab proxy URL first, or use the Simulator tab to test!");
+                return;
+            }
+
+            pauseDemoSimulation();
+            isGeotabPolling = true;
+            btn.textContent = "Stop Geotab Polling";
+            btn.className = "w-full py-2 px-3 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-extrabold text-xs transition shadow-md";
+            pill.textContent = `Polling Every ${pollSec}s`;
+            pill.className = "px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/40";
+
+            fetchGeotabPosition(endpoint);
+            geotabPollTimer = setInterval(() => fetchGeotabPosition(endpoint), pollSec * 1000);
+            showToast(`Connected Geotab polling (${deviceId})`);
+        }
+
+        async function fetchGeotabPosition(endpoint) {
+            try {
+                const res = await fetch(endpoint, { cache: 'no-store' });
+                const data = await res.json();
+                // Support both direct { latitude, longitude, speed } and Geotab result array
+                const record = Array.isArray(data.result) ? data.result[0] : data;
+                if (record && typeof record.latitude === 'number' && typeof record.longitude === 'number') {
+                    const coords = [record.latitude, record.longitude];
+                    const speedMph = typeof record.speed === 'number' ? Math.round(record.speed) : 0;
+                    santaMarker.setLatLng(coords);
+                    santaMarker.setPopupContent(buildSantaPopupHTML(record.status || "Live Geotab GPS Telemetry", speedMph));
+                    document.getElementById('telemetrySpeed').textContent = `${speedMph} MPH`;
+                    document.getElementById('drawerLastPing').textContent = new Date().toLocaleTimeString();
+                    if (record.status) {
+                        document.getElementById('liveStatusText').textContent = record.status;
+                    }
+                }
+            } catch (err) {
+                console.warn("Geotab poll warning:", err);
+            }
+        }
+
+        const EVENT_TARGET_TIMESTAMP = new Date('2026-12-22T18:00:00-05:00').getTime();
+
+        function updateCountdownTimer() {
+            const now = Date.now();
+            const diff = EVENT_TARGET_TIMESTAMP - now;
+
+            if (diff <= 0) {
+                document.getElementById('cdDays').textContent = "00";
+                document.getElementById('cdHours').textContent = "00";
+                document.getElementById('cdMins').textContent = "00";
+                document.getElementById('cdSecs').textContent = "LIVE";
+                return;
+            }
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+            const mins = Math.floor((diff / (1000 * 60)) % 60);
+            const secs = Math.floor((diff / 1000) % 60);
+
+            document.getElementById('cdDays').textContent = String(days).padStart(2, '0');
+            document.getElementById('cdHours').textContent = String(hours).padStart(2, '0');
+            document.getElementById('cdMins').textContent = String(mins).padStart(2, '0');
+            document.getElementById('cdSecs').textContent = String(secs).padStart(2, '0');
+        }
+
+        let audioCtx = null;
+        let isAudioPlaying = false;
+        let melodyTimeout = null;
+        let noteStep = 0;
+
+        // Cheerful "Jingle Bells" Chorus Melody in C Major (Frequencies + Durations)
+        const JINGLE_BELLS_MELODY = [
+            { f: 659.25, d: 240 }, { f: 659.25, d: 240 }, { f: 659.25, d: 480 }, // E5, E5, E5
+            { f: 659.25, d: 240 }, { f: 659.25, d: 240 }, { f: 659.25, d: 480 }, // E5, E5, E5
+            { f: 659.25, d: 240 }, { f: 783.99, d: 240 }, { f: 523.25, d: 360 }, { f: 587.33, d: 140 }, { f: 659.25, d: 720 }, // E5, G5, C5, D5, E5
+            { f: 698.46, d: 240 }, { f: 698.46, d: 240 }, { f: 698.46, d: 360 }, { f: 698.46, d: 140 }, // F5, F5, F5, F5
+            { f: 698.46, d: 240 }, { f: 659.25, d: 240 }, { f: 659.25, d: 240 }, { f: 659.25, d: 120 }, { f: 659.25, d: 120 }, // F5, E5, E5, E5, E5
+            { f: 659.25, d: 240 }, { f: 587.33, d: 240 }, { f: 587.33, d: 240 }, { f: 659.25, d: 240 }, { f: 587.33, d: 480 }, { f: 783.99, d: 480 } // E5, D5, D5, E5, D5, G5
+        ];
+
+        function toggleHolidayAudio() {
+            if (isAudioPlaying) {
+                stopHolidayAudio();
+            } else {
+                startHolidayAudio();
+            }
+        }
+
+        function startHolidayAudio() {
+            try {
+                if (!audioCtx) {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    audioCtx = new AudioContextClass();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                isAudioPlaying = true;
+                updateAudioButtonsUI(true);
+                showToast("🎵 Holiday Sleigh Chimes Radio: ON");
+                playNextHolidayNote();
+            } catch (e) {
+                console.warn("Web Audio API error:", e);
+            }
+        }
+
+        function stopHolidayAudio() {
+            isAudioPlaying = false;
+            if (melodyTimeout) clearTimeout(melodyTimeout);
+            updateAudioButtonsUI(false);
+            showToast("🔇 Holiday Radio Muted");
+        }
+
+        function playNextHolidayNote() {
+            if (!isAudioPlaying || !audioCtx) return;
+
+            const note = JINGLE_BELLS_MELODY[noteStep % JINGLE_BELLS_MELODY.length];
+            noteStep++;
+
+            const now = audioCtx.currentTime;
+
+            // Main Celesta / Music Box Chime Oscillator
+            const osc = audioCtx.createOscillator();
+            const harmonic = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(note.f, now);
+
+            // Sparkle bell overtone
+            harmonic.type = 'sine';
+            harmonic.frequency.setValueAtTime(note.f * 2, now);
+
+            gain.gain.setValueAtTime(0.001, now);
+            gain.gain.exponentialRampToValueAtTime(0.11, now + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + (note.d / 1000) * 0.95);
+
+            osc.connect(gain);
+            harmonic.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start(now);
+            harmonic.start(now);
+            osc.stop(now + note.d / 1000);
+            harmonic.stop(now + note.d / 1000);
+
+            melodyTimeout = setTimeout(playNextHolidayNote, note.d + 45);
+        }
+
+        function updateAudioButtonsUI(playing) {
+            const dIcon = document.getElementById('desktopAudioIcon');
+            const dLabel = document.getElementById('desktopAudioLabel');
+            const mIcon = document.getElementById('mobileAudioIcon');
+
+            if (playing) {
+                dIcon.className = "ph-fill ph-speaker-high text-emerald-400 text-base animate-pulse";
+                dLabel.textContent = "Holiday Radio: On";
+                mIcon.className = "ph-fill ph-speaker-high text-emerald-400 text-lg";
+            } else {
+                dIcon.className = "ph-fill ph-speaker-slash text-amber-400 text-base";
+                dLabel.textContent = "Holiday Radio: Off";
+                mIcon.className = "ph-fill ph-speaker-slash text-lg";
+            }
+        }
+
+        const snowCanvas = document.getElementById('snowCanvas');
+        const snowCtx = snowCanvas.getContext('2d');
+        let isSnowing = true;
+        let snowflakes = [];
+
+        function resizeSnowCanvas() {
+            snowCanvas.width = window.innerWidth;
+            snowCanvas.height = window.innerHeight;
+        }
+
+        function initSnowflakes() {
+            resizeSnowCanvas();
+            const count = Math.min(110, Math.floor(window.innerWidth / 12));
+            snowflakes = Array.from({ length: count }, () => ({
+                x: Math.random() * snowCanvas.width,
+                y: Math.random() * snowCanvas.height,
+                r: Math.random() * 2.8 + 1,
+                speedY: Math.random() * 0.9 + 0.35,
+                speedX: (Math.random() - 0.5) * 0.5,
+                opacity: Math.random() * 0.65 + 0.25
+            }));
+        }
+
+        function animateSnowfall() {
+            snowCtx.clearRect(0, 0, snowCanvas.width, snowCanvas.height);
+            if (isSnowing) {
+                for (let f of snowflakes) {
+                    snowCtx.beginPath();
+                    snowCtx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+                    snowCtx.fillStyle = `rgba(224, 242, 254, ${f.opacity})`;
+                    snowCtx.fill();
+
+                    f.y += f.speedY;
+                    f.x += f.speedX + Math.sin(f.y * 0.015) * 0.25;
+
+                    if (f.y > snowCanvas.height) {
+                        f.y = -5;
+                        f.x = Math.random() * snowCanvas.width;
+                    }
+                    if (f.x > snowCanvas.width) f.x = 0;
+                    if (f.x < 0) f.x = snowCanvas.width;
+                }
+            }
+            requestAnimationFrame(animateSnowfall);
+        }
+
+        function toggleSnowfall() {
+            isSnowing = !isSnowing;
+            document.getElementById('snowBtnLabel').textContent = isSnowing ? "Snow: On" : "Snow: Off";
+            showToast(isSnowing ? "❄️ Winter Snowfall Enabled" : "Snowfall Overlay Hidden");
+        }
+
+        function recenterOnSanta() {
+            followSantaMode = true;
+            const pos = santaMarker.getLatLng();
+            map.flyTo(pos, 16, { duration: 0.9 });
+            santaMarker.openPopup();
+            showToast("Locked camera onto Santa's Sleigh");
+        }
+
+        function fitFullRoute() {
+            followSantaMode = false;
+            if (glowPolyline) {
+                map.fitBounds(glowPolyline.getBounds(), { padding: [50, 50] });
+            }
+        }
+
+        let stopsPanelExpanded = true;
+        function toggleStopsPanel() {
+            stopsPanelExpanded = !stopsPanelExpanded;
+            const body = document.getElementById('stopsPanelBody');
+            const icon = document.getElementById('stopsToggleIcon');
+            if (stopsPanelExpanded) {
+                body.classList.remove('hidden');
+                icon.className = "ph-bold ph-caret-up";
+            } else {
+                body.classList.add('hidden');
+                icon.className = "ph-bold ph-caret-down";
+            }
+        }
+
+        function toggleAdminDrawer() {
+            const drawer = document.getElementById('adminDrawer');
+            drawer.classList.toggle('hidden');
+        }
+
+        function switchAdminTab(tabName) {
+            ['sim', 'geotab', 'embed'].forEach(t => {
+                const content = document.getElementById(`tabContent-${t}`);
+                const btn = document.getElementById(`tabBtn-${t}`);
+                if (t === tabName) {
+                    content.classList.remove('hidden');
+                    btn.className = "py-2 px-2 rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/40 transition flex items-center justify-center gap-1.5";
+                } else {
+                    content.classList.add('hidden');
+                    btn.className = "py-2 px-2 rounded-xl text-slate-400 hover:text-white transition flex items-center justify-center gap-1.5";
+                }
+            });
+        }
+
+        function enableMapClickPinMode() {
+            mapClickPickMode = true;
+            const btn = document.getElementById('pickOnMapBtn');
+            btn.classList.add('bg-amber-500', 'text-slate-950');
+            if (window.innerWidth < 640) {
+                toggleAdminDrawer();
+            }
+            showToast("Click anywhere on the Seat Pleasant map to grab coordinates!");
+        }
+
+        function addCustomPinFromForm() {
+            const name = document.getElementById('newPinName').value.trim();
+            const subtitle = document.getElementById('newPinSub').value.trim() || "Holiday Neighborhood Stop";
+            const address = document.getElementById('newPinAddress').value.trim() || "Seat Pleasant, MD";
+            const lat = parseFloat(document.getElementById('newPinLat').value);
+            const lng = parseFloat(document.getElementById('newPinLng').value);
+
+            if (!name || isNaN(lat) || isNaN(lng)) {
+                showToast("Please provide a Pin Title and valid Lat/Lng coordinates.");
+                return;
+            }
+
+            const newPin = {
+                id: 'custom-' + Date.now(),
+                stopNumber: LANDMARK_PINS.length + 1,
+                name,
+                subtitle,
+                address,
+                coords: [lat, lng],
+                emoji: "⭐",
+                badgeColor: "from-amber-400 to-rose-500",
+                eta: "TBD",
+                description: "Custom community stop added via Seat Pleasant Santa Tracker Control Center."
+            };
+
+            LANDMARK_PINS.push(newPin);
+            SANTA_ROUTE_WAYPOINTS.splice(SANTA_ROUTE_WAYPOINTS.length - 1, 0, {
+                coords: [lat, lng],
+                street: `${address} (${name})`,
+                stopId: newPin.id
+            });
+
+            buildInterpolatedRoute();
+            drawRouteLines();
+            renderLandmarkPins();
+
+            document.getElementById('newPinName').value = '';
+            document.getElementById('newPinSub').value = '';
+            document.getElementById('newPinAddress').value = '';
+            map.flyTo([lat, lng], 16, { duration: 1 });
+            showToast(`Added "${name}" to Seat Pleasant route!`);
+        }
+
+        function exportConfigJSON() {
+            const exportPayload = {
+                city: "City of Seat Pleasant, MD",
+                eventTime: "2026-12-22T18:00:00-05:00",
+                landmarks: LANDMARK_PINS,
+                routeWaypoints: SANTA_ROUTE_WAYPOINTS
+            };
+            copyTextToClipboard(JSON.stringify(exportPayload, null, 2));
+            showToast("Copied Landmark & Route JSON to clipboard!");
+        }
+
+        function copyCodeBlock(elementId) {
+            const text = document.getElementById(elementId).innerText;
+            copyTextToClipboard(text);
+            showToast("Copied snippet to clipboard!");
+        }
+
+        function copyTextToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+            } catch (err) {
+                console.warn('Copy fallback failed', err);
+            }
+            document.body.removeChild(textarea);
+        }
+
+        let toastTimer = null;
+        function showToast(message) {
+            const toast = document.getElementById('toastNotification');
+            const label = document.getElementById('toastMessage');
+            label.textContent = message;
+            toast.classList.remove('opacity-0', 'translate-y-3');
+            toast.classList.add('opacity-100', 'translate-y-0');
+
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'translate-y-3');
+            }, 3200);
+        }
+
+        // Initialize everything on load
+        window.onload = function () {
+            initMap();
+            initSnowflakes();
+            animateSnowfall();
+            updateCountdownTimer();
+            setInterval(updateCountdownTimer, 1000);
+            window.addEventListener('resize', () => {
+                resizeSnowCanvas();
+                if (map) map.invalidateSize();
+            });
+        };
+    </script>
+</body>
+</html>
