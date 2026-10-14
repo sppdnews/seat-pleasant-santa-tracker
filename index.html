@@ -40,9 +40,15 @@
             font-family: 'Mountains of Christmas', cursive;
         }
 
-        /* Winter Wonderland Nighttime Map Filter */
-        .winter-map-tiles {
-            filter: brightness(1.08) contrast(1.12) hue-rotate(198deg) saturate(1.75);
+        /* 100% Keyless Winter Wonderland Nighttime Map Filters */
+        /* Mode 1: OpenStreetMap Inverted Midnight Ice Filter (Crisp street names + glowing navy roads) */
+        .leaflet-tile-pane.theme-osm-ice {
+            filter: invert(100%) hue-rotate(195deg) brightness(92%) contrast(95%) saturate(140%);
+        }
+
+        /* Mode 2: Esri Dark Gray Canvas + Reference Labels with Icy Blue Tint */
+        .leaflet-tile-pane.theme-esri-slate {
+            filter: brightness(1.12) contrast(1.15) hue-rotate(195deg) saturate(1.65);
         }
 
         /* Custom Leaflet Popup Styling */
@@ -163,8 +169,11 @@
                     </div>
                 </div>
 
-                <!-- Mobile Quick Audio/Snow Buttons -->
+                <!-- Mobile Quick Audio/Snow/Map Theme Buttons -->
                 <div class="flex lg:hidden items-center gap-1.5">
+                    <button id="mobileMapThemeBtn" onclick="toggleBasemapStyle()" class="p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-amber-300 border border-sky-500/30 transition" title="Switch Keyless Map Style">
+                        <i class="ph-fill ph-map-trifold text-lg"></i>
+                    </button>
                     <button id="mobileAudioBtn" onclick="toggleHolidayAudio()" class="p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-sky-300 border border-sky-500/30 transition" title="Toggle Holiday Music">
                         <i id="mobileAudioIcon" class="ph-fill ph-speaker-slash text-lg"></i>
                     </button>
@@ -212,6 +221,11 @@
 
             <!-- Right: Interactive Map & Audio Controls -->
             <div class="hidden lg:flex items-center gap-2">
+                <button id="desktopMapThemeBtn" onclick="toggleBasemapStyle()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-sky-200 border border-sky-500/30 text-xs font-semibold transition shadow-sm" title="Switch between Keyless Map Providers">
+                    <i class="ph-fill ph-map-trifold text-amber-400 text-base"></i>
+                    <span id="mapStyleBtnLabel">Map: Midnight Ice (OSM)</span>
+                </button>
+
                 <button id="desktopAudioBtn" onclick="toggleHolidayAudio()" class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-sky-500/30 text-xs font-semibold transition shadow-sm">
                     <i id="desktopAudioIcon" class="ph-fill ph-speaker-slash text-amber-400 text-base"></i>
                     <span id="desktopAudioLabel">Holiday Radio: Off</span>
@@ -432,6 +446,15 @@
                                 <button onclick="setSimSpeed(1)" id="speedBtn-1" class="px-2 py-1 rounded-lg bg-sky-500/30 border border-sky-400 text-sky-200 text-[10px] font-bold">1x</button>
                                 <button onclick="setSimSpeed(2)" id="speedBtn-2" class="px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 text-[10px] font-bold">2x</button>
                                 <button onclick="setSimSpeed(4)" id="speedBtn-4" class="px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 text-[10px] font-bold">4x</button>
+                            </div>
+                        </div>
+
+                        <!-- Keyless Basemap Style Selector inside Drawer -->
+                        <div class="flex items-center justify-between pt-2 border-t border-slate-800/80">
+                            <span class="text-[11px] text-slate-300 font-medium">Keyless Map Tile Theme:</span>
+                            <div class="flex items-center gap-1">
+                                <button onclick="setBasemapStyle('osm-ice')" id="basemapBtn-osm" class="px-2.5 py-1 rounded-lg bg-sky-500/30 border border-sky-400 text-sky-200 text-[10px] font-bold">Midnight Ice (OSM)</button>
+                                <button onclick="setBasemapStyle('esri-slate')" id="basemapBtn-esri" class="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 text-[10px] font-bold">Esri Dark Slate</button>
                             </div>
                         </div>
                     </div>
@@ -741,6 +764,11 @@ export default {
         let landmarkMarkers = [];
         let denseRoutePoints = [];
 
+        // 100% Keyless Basemap Layers (No CARTO API key watermark)
+        let osmKeylessLayer = null;
+        let esriDarkGroupLayer = null;
+        let currentBasemapStyle = 'osm-ice'; // 'osm-ice' | 'esri-slate'
+
         // Simulation & Tracking State
         let simInterval = null;
         let isSimulating = false;
@@ -764,13 +792,24 @@ export default {
             // Position zoom control on top-right so left checkpoint panel has room
             L.control.zoom({ position: 'topright' }).addTo(map);
 
-            // CartoDB Dark Matter Tiles styled with our Winter Wonderland CSS filter
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; OpenStreetMap &copy; CARTO | City of Seat Pleasant',
-                subdomains: 'abcd',
-                maxZoom: 19,
-                className: 'winter-map-tiles'
-            }).addTo(map);
+            // 1. Default 100% Keyless Layer: OpenStreetMap Standard Tiles + Midnight Ice CSS Filter
+            osmKeylessLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> | City of Seat Pleasant',
+                maxZoom: 19
+            });
+
+            // 2. Secondary 100% Keyless Layer: Esri World Dark Gray Base + Street Reference Labels
+            const esriDarkBase = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ | City of Seat Pleasant',
+                maxZoom: 19
+            });
+            const esriDarkLabels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 19
+            });
+            esriDarkGroupLayer = L.layerGroup([esriDarkBase, esriDarkLabels]);
+
+            // Activate Default Keyless OSM Midnight Ice Layer
+            setBasemapStyle('osm-ice', true);
 
             // Subtle Seat Pleasant City Boundary Frost Halo
             L.polygon(SEAT_PLEASANT_BOUNDARY, {
@@ -804,6 +843,50 @@ export default {
                     showToast(`Picked coordinates: ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`);
                 }
             });
+        }
+
+        function setBasemapStyle(styleName, silent = false) {
+            if (!map) return;
+            currentBasemapStyle = styleName;
+            const tilePane = map.getPane('tilePane');
+
+            if (osmKeylessLayer && map.hasLayer(osmKeylessLayer)) {
+                map.removeLayer(osmKeylessLayer);
+            }
+            if (esriDarkGroupLayer && map.hasLayer(esriDarkGroupLayer)) {
+                map.removeLayer(esriDarkGroupLayer);
+            }
+
+            const btnOsm = document.getElementById('basemapBtn-osm');
+            const btnEsri = document.getElementById('basemapBtn-esri');
+            const topLabel = document.getElementById('mapStyleBtnLabel');
+
+            if (styleName === 'esri-slate') {
+                esriDarkGroupLayer.addTo(map);
+                if (tilePane) {
+                    tilePane.classList.remove('theme-osm-ice');
+                    tilePane.classList.add('theme-esri-slate');
+                }
+                if (topLabel) topLabel.textContent = "Map: Esri Dark Slate";
+                if (btnEsri) btnEsri.className = "px-2.5 py-1 rounded-lg bg-sky-500/30 border border-sky-400 text-sky-200 text-[10px] font-bold";
+                if (btnOsm) btnOsm.className = "px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 text-[10px] font-bold";
+                if (!silent) showToast("Switched to Esri Dark Slate (100% Keyless)");
+            } else {
+                osmKeylessLayer.addTo(map);
+                if (tilePane) {
+                    tilePane.classList.remove('theme-esri-slate');
+                    tilePane.classList.add('theme-osm-ice');
+                }
+                if (topLabel) topLabel.textContent = "Map: Midnight Ice (OSM)";
+                if (btnOsm) btnOsm.className = "px-2.5 py-1 rounded-lg bg-sky-500/30 border border-sky-400 text-sky-200 text-[10px] font-bold";
+                if (btnEsri) btnEsri.className = "px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 text-[10px] font-bold";
+                if (!silent) showToast("Switched to Midnight Ice OpenStreetMap (100% Keyless)");
+            }
+        }
+
+        function toggleBasemapStyle() {
+            const nextStyle = currentBasemapStyle === 'osm-ice' ? 'esri-slate' : 'osm-ice';
+            setBasemapStyle(nextStyle);
         }
 
         function buildInterpolatedRoute() {
