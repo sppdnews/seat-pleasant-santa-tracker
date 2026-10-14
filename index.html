@@ -38,12 +38,9 @@
       background: #07162c;
     }
 
-    /* 1. Winter Wonderland Frosted Map Filter (Turns streets icy white/blue & parks snowy) */
+    /* 1. Winter Wonderland Frosted Map Filter */
     .leaflet-tile-pane.theme-winter-wonderland {
       filter: invert(100%) hue-rotate(192deg) brightness(102%) contrast(92%) saturate(165%);
-    }
-    .leaflet-tile-pane.theme-esri-dark {
-      filter: hue-rotate(12deg) saturate(135%) brightness(108%);
     }
 
     /* 2. Icy Frosted Border Vignette around the entire map */
@@ -79,19 +76,19 @@
       }
     }
     .candy-cane-line {
-      animation: candyCaneMarch 1.3s linear infinite;
+      animation: candyCaneMarch 1.2s linear infinite;
     }
 
-    /* 5. Twinkling Holiday Street Lights along the route */
+    /* 5. Twinkling Holiday Street Lights along the actual streets */
     @keyframes twinkleBulb {
-      0%, 100% { transform: scale(0.85); opacity: 0.55; }
-      50% { transform: scale(1.25); opacity: 1; }
+      0%, 100% { transform: scale(0.8); opacity: 0.55; }
+      50% { transform: scale(1.3); opacity: 1; }
     }
     .holiday-bulb {
-      width: 10px;
-      height: 10px;
+      width: 9px;
+      height: 9px;
       border-radius: 9999px;
-      animation: twinkleBulb 1.6s ease-in-out infinite;
+      animation: twinkleBulb 1.5s ease-in-out infinite;
     }
 
     /* 6. Floating Winter Village Props */
@@ -115,7 +112,7 @@
     }
     @keyframes sleighFloat {
       0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(-6px); }
+      50% { transform: translateY(-5px); }
     }
     .sppd-strobe-red { animation: strobeRed 0.45s infinite; }
     .sppd-strobe-blue { animation: strobeBlue 0.45s infinite; }
@@ -162,7 +159,7 @@
             </span>
             <span id="gps-badge" class="text-[11px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 flex items-center gap-1">
               <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-              Santa HQ Standby
+              Snapping to Streets...
             </span>
           </div>
           <h1 class="font-holiday text-2xl sm:text-3xl text-white tracking-wide leading-tight">
@@ -313,7 +310,7 @@
     // =========================================================================
     // 1. MAP INITIALIZATION (100% Keyless Esri Street + Winter Wonderland Filter)
     // =========================================================================
-    const SEAT_PLEASANT_CENTER = [38.8942, -76.8985];
+    const SEAT_PLEASANT_CENTER = [38.8942, -76.8980];
 
     const map = L.map('map', {
       center: SEAT_PLEASANT_CENTER,
@@ -322,7 +319,7 @@
     });
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    const winterStreetLayer = L.tileLayer(
+    L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
       {
         maxZoom: 19,
@@ -333,144 +330,213 @@
     map.getPane('tilePane').classList.add('theme-winter-wonderland');
 
     // =========================================================================
-    // 2. OFFICIAL SEAT PLEASANT SANTA RUN ROUTE (STEP-BY-STEP)
+    // 2. EXACT SEAT PLEASANT STREET INTERSECTION WAYPOINTS
     // =========================================================================
-    const santaRoute = [
-      // Start: 6011 Addison Rd (Santa HQ)
-      { lat: 38.8931, lng: -76.9016, street: "Santa HQ — Departing 6011 Addison Rd", next: "Drylog St Neighborhood" },
-      // Up Addison Rd to Drylog St
-      { lat: 38.8945, lng: -76.9012, street: "Turning onto Drylog St from Addison Rd", next: "Drylog St & Neighborhood Loop" },
-      { lat: 38.8953, lng: -76.8980, street: "Visiting Drylog St", next: "Drylog Neighborhood Streets" },
-      // A few roads in the Drylog area (65th / Foote St / 62nd Pl / Seat Pleasant Dr loop)
-      { lat: 38.8962, lng: -76.8950, street: "Drylog St East Neighborhood", next: "Foote St & Seat Pleasant Dr Loop" },
-      { lat: 38.8973, lng: -76.8958, street: "Looping through Foote St & 65th Ave Area", next: "Seat Pleasant Dr" },
-      { lat: 38.8968, lng: -76.8992, street: "Visiting Seat Pleasant Dr & 62nd Pl Area", next: "Back to Addison Rd" },
-      { lat: 38.8951, lng: -76.9002, street: "Returning along Drylog St to Addison Rd", next: "Left Turn onto Addison Rd" },
-      // Left on Addison Rd heading South
-      { lat: 38.8945, lng: -76.9012, street: "Left Turn onto Addison Rd (Heading South)", next: "Baltic St" },
-      { lat: 38.8926, lng: -76.9017, street: "Proceeding South on Addison Rd past Santa HQ", next: "Baltic St" },
-      // Baltic Street -> Avon -> Adak
-      { lat: 38.8908, lng: -76.9001, street: "Turning onto Baltic St", next: "Avon St" },
-      { lat: 38.8907, lng: -76.8982, street: "Visiting Baltic St Neighborhood", next: "Avon St" },
-      { lat: 38.8899, lng: -76.8991, street: "Weaving onto Avon St", next: "Adak St" },
-      { lat: 38.8892, lng: -76.8972, street: "Visiting Avon St & Adak St Corridor", next: "Adak St" },
-      { lat: 38.8885, lng: -76.8941, street: "Traveling along Adak St toward Central Ave", next: "Central Ave (MD-214)" },
-      // Up Central Avenue to City Hall
-      { lat: 38.8878, lng: -76.8935, street: "Turning onto Central Ave (Heading West)", next: "Seat Pleasant City Hall" },
-      { lat: 38.8884, lng: -76.8975, street: "Cruising up Central Ave", next: "Seat Pleasant City Hall" },
-      { lat: 38.8891, lng: -76.9012, street: "Central Ave & Addison Rd Intersection", next: "Seat Pleasant City Hall Stop" },
-      // Stop at City Hall (6301 Addison Rd)
-      { lat: 38.8906, lng: -76.9012, street: "STOP: Seat Pleasant City Hall (6301 Addison Rd) 🏛️", next: "Addison Rd to MLK Jr. Hwy" },
-      // Proceed down Addison Rd to MLK Jr. Hwy
-      { lat: 38.8931, lng: -76.9016, street: "Proceeding along Addison Rd toward MLK Jr. Hwy", next: "Martin Luther King Jr. Hwy" },
-      { lat: 38.8962, lng: -76.9007, street: "Approaching Addison Rd & MLK Jr. Hwy", next: "Greig St Apartments" },
-      { lat: 38.8992, lng: -76.8998, street: "Turning onto Martin Luther King Jr. Hwy", next: "Greig St Apartments Stop" },
-      { lat: 38.9006, lng: -76.8962, street: "Heading East on Martin Luther King Jr. Hwy", next: "Greig St Apartments Stop" },
-      // Stop at Greig Street Apartments (Pleasant Homes - 6606 Greig St)
-      { lat: 38.9018, lng: -76.8950, street: "STOP: Greig Street Apartments (6606 Greig St) 🏢🎁", next: "Seat Pleasant Activity Center" },
-      // Back via MLK Jr Hwy -> Left turn onto Addison Rd -> Stop at Activity Center (5720 Addison Rd)
-      { lat: 38.8992, lng: -76.8998, street: "Left Turn onto Addison Rd from MLK Jr. Hwy", next: "Santa's Party (Activity Center)" },
-      { lat: 38.8972, lng: -76.9001, street: "FINAL STOP: Seat Pleasant Activity Center — SANTA'S PARTY! 🎉🎄", next: "Welcome to Santa's Party!" }
+    const controlWaypoints = [
+      // 1. Start at 6011 Addison Rd (Santa HQ)
+      { lat: 38.89322, lng: -76.90160, street: "Santa HQ — Departing 6011 Addison Rd", next: "Drylog St Neighborhood" },
+      // 2. Head North on Addison Rd to Drylog St intersection
+      { lat: 38.89485, lng: -76.90115, street: "Turning Right onto Drylog St from Addison Rd", next: "Drylog St Loop" },
+      // 3. East along Drylog St
+      { lat: 38.89552, lng: -76.89765, street: "Cruising down Drylog St", next: "65th Ave & Seat Pleasant Dr" },
+      { lat: 38.89685, lng: -76.89335, street: "Visiting Drylog St East", next: "Seat Pleasant Dr & Foote St Loop" },
+      // 4. Loop through neighborhood roads (Seat Pleasant Dr & Foote St)
+      { lat: 38.89775, lng: -76.89475, street: "Looping onto Seat Pleasant Dr", next: "Foote St Neighborhood" },
+      { lat: 38.89675, lng: -76.89865, street: "Visiting Foote St & 63rd Pl Neighborhood", next: "Back to Drylog St & Addison Rd" },
+      // 5. Back along Drylog St to Addison Rd
+      { lat: 38.89515, lng: -76.89955, street: "Returning West on Drylog St toward Addison Rd", next: "Left Turn onto Addison Rd" },
+      { lat: 38.89485, lng: -76.90115, street: "Making Left Turn onto Addison Rd (Heading South)", next: "Baltic St" },
+      // 6. South on Addison Rd past 6011 to Baltic St
+      { lat: 38.89082, lng: -76.90018, street: "Turning Left onto Baltic St from Addison Rd", next: "Avon St" },
+      { lat: 38.89075, lng: -76.89735, street: "Visiting Baltic St Families", next: "Avon St" },
+      // 7. Weave onto Avon St -> Adak St
+      { lat: 38.88995, lng: -76.89745, street: "Turning onto Avon St", next: "Adak St" },
+      { lat: 38.88998, lng: -76.89945, street: "Cruising down Avon St", next: "Adak St" },
+      { lat: 38.88918, lng: -76.89925, street: "Turning onto Adak St", next: "Central Ave (MD-214)" },
+      { lat: 38.88885, lng: -76.89505, street: "Heading East on Adak St toward Central Ave", next: "Central Ave (MD-214)" },
+      // 8. Out to Central Ave & West up Central Ave
+      { lat: 38.88795, lng: -76.89485, street: "Merging onto Central Ave (Heading West)", next: "Seat Pleasant City Hall" },
+      { lat: 38.88892, lng: -76.90085, street: "Turning Right from Central Ave onto Addison Rd", next: "Seat Pleasant City Hall Stop" },
+      // 9. STOP at Seat Pleasant City Hall (6301 Addison Rd)
+      { lat: 38.89058, lng: -76.90052, street: "STOP: Seat Pleasant City Hall (6301 Addison Rd) 🏛️🎄", next: "Addison Rd to MLK Jr. Hwy" },
+      // 10. Proceed North on Addison Rd to MLK Jr. Hwy
+      { lat: 38.89485, lng: -76.90115, street: "Proceeding North on Addison Rd toward MLK Jr. Hwy", next: "Martin Luther King Jr. Hwy" },
+      { lat: 38.89885, lng: -76.89985, street: "Turning Right onto Martin Luther King Jr. Hwy", next: "Greig St Apartments" },
+      // 11. STOP at Greig Street Apartments (6606 Greig St off MLK Jr. Hwy)
+      { lat: 38.90125, lng: -76.89535, street: "Turning onto Greig St from MLK Jr. Hwy", next: "Greig St Apartments Stop" },
+      { lat: 38.90185, lng: -76.89505, street: "STOP: Greig Street Apartments (6606 Greig St) 🏢🎁", next: "Seat Pleasant Activity Center" },
+      // 12. Return down MLK Jr. Hwy -> Left Turn onto Addison Rd -> Stop at Seat Pleasant Activity Center (5720 Addison Rd)
+      { lat: 38.89885, lng: -76.89985, street: "Left Turn from MLK Jr. Hwy onto Addison Rd", next: "Santa's Party (Activity Center)" },
+      { lat: 38.89715, lng: -76.90015, street: "FINAL STOP: Seat Pleasant Activity Center — SANTA'S PARTY! 🎉🎅", next: "Welcome to Santa's Party!" }
     ];
 
-    const routeCoords = santaRoute.map(pt => [pt.lat, pt.lng]);
-
-    // Fit map bounds nicely to the new route
-    map.fitBounds(L.latLngBounds(routeCoords).pad(0.14));
-
     // =========================================================================
-    // 3. FESTIVE SNOW-COVERED STREETS, CANDY-CANE PATH & WINTER VILLAGE PROPS
+    // 3. OSRM REAL STREET-SNAPPING ENGINE (Hugs Every Road Curve)
     // =========================================================================
     const festiveDecorGroup = L.layerGroup().addTo(map);
+    const routeLineGroup = L.layerGroup().addTo(map);
 
-    // Layer A: Outer Icy Blue Snowdrift Halo on the streets
-    L.polyline(routeCoords, {
-      color: '#38bdf8',
-      weight: 22,
-      opacity: 0.28,
-      lineCap: 'round',
-      lineJoin: 'round'
-    }).addTo(festiveDecorGroup);
+    // Detailed array of { lat, lng, street, next } snapped to actual roads
+    let detailedStreetPath = [];
 
-    // Layer B: Freshly Plowed White Snow Road Surface
-    L.polyline(routeCoords, {
-      color: '#f8fafc',
-      weight: 11,
-      opacity: 0.92,
-      lineCap: 'round',
-      lineJoin: 'round'
-    }).addTo(festiveDecorGroup);
+    async function buildStreetSnappedRoute() {
+      const coordString = controlWaypoints.map(w => `${w.lng},${w.lat}`).join(';');
+      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordString}?overview=full&geometries=geojson&steps=true`;
 
-    // Layer C: Animated Red & White Candy-Cane Center Stripe
-    L.polyline(routeCoords, {
-      color: '#dc2626',
-      weight: 6,
-      dashArray: '12, 12',
-      opacity: 0.98,
-      lineCap: 'butt',
-      className: 'candy-cane-line'
-    }).addTo(map);
+      try {
+        const res = await fetch(osrmUrl);
+        const data = await res.json();
 
-    // Layer D: Twinkling Christmas Bulbs along every street segment
-    const bulbColors = [
-      { bg: '#ef4444', glow: '#f87171' }, // Red
-      { bg: '#22c55e', glow: '#4ade80' }, // Green
-      { bg: '#fbbf24', glow: '#fde047' }, // Gold
-      { bg: '#38bdf8', glow: '#7dd3fc' }  // Ice Blue
-    ];
+        if (data.code === 'Ok' && data.routes && data.routes[0]) {
+          const legs = data.routes[0].legs;
+          const snappedPoints = [];
 
-    routeCoords.forEach((coord, idx) => {
-      if (idx === routeCoords.length - 1) return;
-      const nextCoord = routeCoords[idx + 1];
-      // Place 2 twinkling bulbs along each road segment
-      [0.33, 0.66].forEach((t, stepIdx) => {
-        const lat = coord[0] + (nextCoord[0] - coord[0]) * t;
-        const lng = coord[1] + (nextCoord[1] - coord[1]) * t;
-        const c = bulbColors[(idx + stepIdx) % bulbColors.length];
-        const delay = ((idx * 0.25) + (stepIdx * 0.4)).toFixed(2);
-        const bulbIcon = L.divIcon({
+          legs.forEach((leg, legIdx) => {
+            const wpInfo = controlWaypoints[legIdx];
+            leg.steps.forEach(step => {
+              const stepCoords = step.geometry.coordinates;
+              const roadName = step.name ? `${ wpInfo.street } (${ step.name })` : wpInfo.street;
+              stepCoords.forEach(([lng, lat]) => {
+                snappedPoints.push({
+                  lat,
+                  lng,
+                  street: wpInfo.street,
+                  next: wpInfo.next,
+                  roadName
+                });
+              });
+            });
+          });
+
+          // Add final stop status
+          const lastWp = controlWaypoints[controlWaypoints.length - 1];
+          snappedPoints.push({
+            lat: lastWp.lat,
+            lng: lastWp.lng,
+            street: lastWp.street,
+            next: lastWp.next
+          });
+
+          detailedStreetPath = snappedPoints;
+          renderFestiveRoadway(detailedStreetPath.map(p => [p.lat, p.lng]));
+
+          document.getElementById('gps-badge').innerHTML = `
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            Street-Snapped Route Ready
+          `;
+          return;
+        }
+      } catch (err) {
+        console.warn('OSRM street router fallback used:', err);
+      }
+
+      // Fallback if offline
+      detailedStreetPath = controlWaypoints;
+      renderFestiveRoadway(controlWaypoints.map(p => [p.lat, p.lng]));
+    }
+
+    function renderFestiveRoadway(latLngs) {
+      festiveDecorGroup.clearLayers();
+      routeLineGroup.clearLayers();
+
+      map.fitBounds(L.latLngBounds(latLngs).pad(0.12));
+
+      // Layer A: Outer Icy Blue Snowbank Curb Glow following the exact street geometry
+      L.polyline(latLngs, {
+        color: '#38bdf8',
+        weight: 20,
+        opacity: 0.30,
+        lineCap: 'round',
+        lineJoin: 'round'
+      }).addTo(festiveDecorGroup);
+
+      // Layer B: Freshly Plowed White Snow Street Surface
+      L.polyline(latLngs, {
+        color: '#f8fafc',
+        weight: 10,
+        opacity: 0.94,
+        lineCap: 'round',
+        lineJoin: 'round'
+      }).addTo(festiveDecorGroup);
+
+      // Layer C: Animated Red & White Candy-Cane Centerline hugging every street turn
+      L.polyline(latLngs, {
+        color: '#dc2626',
+        weight: 5,
+        dashArray: '12, 12',
+        opacity: 0.98,
+        lineCap: 'butt',
+        className: 'candy-cane-line'
+      }).addTo(routeLineGroup);
+
+      // Layer D: Twinkling Holiday Lights spaced evenly along the real street curves
+      const bulbColors = [
+        { bg: '#ef4444', glow: '#f87171' }, // Red
+        { bg: '#22c55e', glow: '#4ade80' }, // Green
+        { bg: '#fbbf24', glow: '#fde047' }, // Gold
+        { bg: '#38bdf8', glow: '#7dd3fc' }  // Ice Blue
+      ];
+
+      let accumulatedDist = 0;
+      let bulbCount = 0;
+
+      for (let i = 1; i < latLngs.length; i++) {
+        const prev = L.latLng(latLngs[i - 1]);
+        const curr = L.latLng(latLngs[i]);
+        const segDist = prev.distanceTo(curr);
+        accumulatedDist += segDist;
+
+        // Place a twinkling Christmas light every ~85 meters along the actual roadway
+        if (accumulatedDist >= 85) {
+          accumulatedDist = 0;
+          const c = bulbColors[bulbCount % bulbColors.length];
+          const delay = ((bulbCount * 0.19) % 2).toFixed(2);
+          bulbCount++;
+
+          const bulbIcon = L.divIcon({
+            className: '',
+            html: `<div class="holiday-bulb" style="background:${c.bg};box-shadow:0 0 10px 3px ${c.glow};animation-delay:${delay}s;"></div>`,
+            iconSize: [9, 9],
+            iconAnchor: [4.5, 4.5]
+          });
+          L.marker(curr, { icon: bulbIcon, interactive: false }).addTo(festiveDecorGroup);
+        }
+      }
+
+      // Layer E: Festive Winter Village Props along the neighborhoods
+      const winterProps = [
+        { coords: [38.8958, -76.8965], emoji: "🎄" },
+        { coords: [38.8979, -76.8955], emoji: "⛄" },
+        { coords: [38.8964, -76.8998], emoji: "🍬" },
+        { coords: [38.8938, -76.9024], emoji: "🏮" },
+        { coords: [38.8911, -76.8982], emoji: "🎄" },
+        { coords: [38.8896, -76.8981], emoji: "🎁" },
+        { coords: [38.8889, -76.8958], emoji: "⛄" },
+        { coords: [38.8882, -76.8972], emoji: "🎄" },
+        { coords: [38.8901, -76.9018], emoji: "❄️" },
+        { coords: [38.8952, -76.9021], emoji: "🍬" },
+        { coords: [38.8986, -76.9010], emoji: "🎄" },
+        { coords: [38.9009, -76.8970], emoji: "🦌" },
+        { coords: [38.9022, -76.8944], emoji: "⛄" },
+        { coords: [38.8975, -76.8990], emoji: "🎊" }
+      ];
+
+      winterProps.forEach((prop, i) => {
+        const delay = (i * 0.22).toFixed(2);
+        const propIcon = L.divIcon({
           className: '',
-          html: `<div class="holiday-bulb" style="background:${c.bg};box-shadow:0 0 10px 3px ${c.glow};animation-delay:${delay}s;"></div>`,
-          iconSize: [10, 10],
-          iconAnchor: [5, 5]
+          html: `
+            <div class="winter-prop flex flex-col items-center" style="animation-delay:${delay}s;">
+              <span class="text-xl sm:text-2xl select-none">${prop.emoji}</span>
+              <span class="w-5 h-1.5 rounded-full bg-white/85 shadow-[0_0_8px_#fff] -mt-1"></span>
+            </div>
+          `,
+          iconSize: [30, 30],
+          iconAnchor: [15, 15]
         });
-        L.marker([lat, lng], { icon: bulbIcon, interactive: false }).addTo(festiveDecorGroup);
+        L.marker(prop.coords, { icon: propIcon, interactive: false }).addTo(festiveDecorGroup);
       });
-    });
-
-    // Layer E: Festive Winter Wonderland Street Props (Snowbanks, Pine Trees, Snowmen, Candy Canes, Streetlamps)
-    const winterProps = [
-      { coords: [38.8958, -76.8975], emoji: "🎄", label: "Snowy Pine" },
-      { coords: [38.8976, -76.8968], emoji: "⛄", label: "Drylog Snowman" },
-      { coords: [38.8964, -76.9001], emoji: "🍬", label: "Candy Cane Lane" },
-      { coords: [38.8938, -76.9026], emoji: "🏮", label: "Holiday Streetlamp" },
-      { coords: [38.8913, -76.8988], emoji: "🎄", label: "Baltic St Holiday Tree" },
-      { coords: [38.8895, -76.8983], emoji: "🎁", label: "Avon St Gifts" },
-      { coords: [38.8888, -76.8952], emoji: "⛄", label: "Adak St Snowman" },
-      { coords: [38.8881, -76.8962], emoji: "🎄", label: "Central Ave Evergreen" },
-      { coords: [38.8898, -76.9022], emoji: "❄️", label: "City Hall Snowdrift" },
-      { coords: [38.8948, -76.9024], emoji: "🍬", label: "Addison Candy Cane" },
-      { coords: [38.8984, -76.9012], emoji: "🎄", label: "MLK Gateway Tree" },
-      { coords: [38.9014, -76.8975], emoji: "🦌", label: "Reindeer Crossing" },
-      { coords: [38.9022, -76.8942], emoji: "⛄", label: "Greig St Snowman" },
-      { coords: [38.8977, -76.8988], emoji: "🎊", label: "Santa's Party Archway" }
-    ];
-
-    winterProps.forEach((prop, i) => {
-      const delay = (i * 0.22).toFixed(2);
-      const propIcon = L.divIcon({
-        className: '',
-        html: `
-          <div class="winter-prop flex flex-col items-center" style="animation-delay:${delay}s;">
-            <span class="text-xl sm:text-2xl select-none">${prop.emoji}</span>
-            <span class="w-5 h-1.5 rounded-full bg-white/85 shadow-[0_0_8px_#fff] -mt-1"></span>
-          </div>
-        `,
-        iconSize: [30, 30],
-        iconAnchor: [15, 15]
-      });
-      L.marker(prop.coords, { icon: propIcon, interactive: false }).addTo(festiveDecorGroup);
-    });
+    }
 
     let decorEnabled = true;
     function toggleFestiveDecor() {
@@ -492,42 +558,42 @@
       {
         name: "1. Santa HQ (START)",
         desc: "6011 Addison Rd — Santa & SPPD Sleigh Launch",
-        coords: [38.8931, -76.9016],
+        coords: [38.89322, -76.90160],
         emoji: "🚓🎅",
         badgeColor: "border-amber-400 bg-red-950/95"
       },
       {
         name: "2. Drylog St Neighborhood Loop",
-        desc: "Drylog St, Foote St & Seat Pleasant Dr Area",
-        coords: [38.8962, -76.8950],
+        desc: "Drylog St, Seat Pleasant Dr & Foote St",
+        coords: [38.89685, -76.89335],
         emoji: "🏘️❄️",
         badgeColor: "border-sky-400 bg-slate-900/95"
       },
       {
         name: "3. Baltic, Avon & Adak Streets",
         desc: "Southern Neighborhood Holiday Wave Loop",
-        coords: [38.8899, -76.8991],
+        coords: [38.88995, -76.89745],
         emoji: "🍬🎄",
         badgeColor: "border-sky-400 bg-slate-900/95"
       },
       {
         name: "4. Seat Pleasant City Hall (STOP)",
         desc: "6301 Addison Rd — Official City Hall Holiday Stop",
-        coords: [38.8906, -76.9012],
+        coords: [38.89058, -76.90052],
         emoji: "🏛️🎄",
         badgeColor: "border-amber-400 bg-blue-950/95"
       },
       {
         name: "5. Greig Street Apartments (STOP)",
         desc: "6606 Greig St (off MLK Jr. Hwy) — Community Stop",
-        coords: [38.9018, -76.8950],
+        coords: [38.90185, -76.89505],
         emoji: "🏢🎁",
         badgeColor: "border-amber-400 bg-emerald-950/95"
       },
       {
         name: "6. Seat Pleasant Activity Center — SANTA'S PARTY! (FINALE)",
         desc: "5720 Addison Rd — Final Stop & Holiday Celebration!",
-        coords: [38.8972, -76.9001],
+        coords: [38.89715, -76.90015],
         emoji: "🎉🎅",
         badgeColor: "border-amber-300 bg-red-900/95"
       }
@@ -574,17 +640,23 @@
       iconAnchor: [65, 42]
     });
 
-    const santaMarker = L.marker(routeCoords[0], { icon: santaEscortIcon, zIndexOffset: 1000 }).addTo(map);
+    const santaMarker = L.marker([controlWaypoints[0].lat, controlWaypoints[0].lng], {
+      icon: santaEscortIcon,
+      zIndexOffset: 1000
+    }).addTo(map);
 
     function centerOnSanta() {
       map.flyTo(santaMarker.getLatLng(), 16, { duration: 0.8 });
     }
 
+    // Build the street-snapped route immediately on load
+    buildStreetSnappedRoute();
+
     // =========================================================================
-    // 6. ROUTE SIMULATOR & LIVE GEOTAB GPS POLLING
+    // 6. SMOOTH STREET-FOLLOWING SIMULATOR & LIVE GEOTAB GPS POLLING
     // =========================================================================
     let demoInterval = null;
-    let demoIndex = 0;
+    let demoStepIndex = 0;
 
     function updateTelemetryUI(streetText, nextStop, speedMph, modeLabel) {
       document.getElementById('status-headline').textContent = streetText;
@@ -601,27 +673,35 @@
         clearInterval(demoInterval);
         demoInterval = null;
         btn.textContent = '▶️ Preview Route Run';
-        santaMarker.setLatLng(routeCoords[0]);
+        santaMarker.setLatLng([controlWaypoints[0].lat, controlWaypoints[0].lng]);
         updateTelemetryUI(
           'Status: Prepping the Sleigh at Santa HQ (6011 Addison Rd)',
           'Drylog St Neighborhood',
           0,
-          'Santa HQ Standby'
+          'Street-Snapped Route Ready'
         );
         return;
       }
 
+      if (!detailedStreetPath.length) return;
+
       btn.textContent = '⏹️ Stop Preview';
-      demoIndex = 0;
+      demoStepIndex = 0;
+
+      // Advance smoothly along every street-snapped vertex
       demoInterval = setInterval(() => {
-        demoIndex = (demoIndex + 1) % santaRoute.length;
-        const stop = santaRoute[demoIndex];
-        santaMarker.setLatLng([stop.lat, stop.lng]);
-        map.panTo([stop.lat, stop.lng], { animate: true, duration: 1.1 });
-        const isStop = stop.street.includes('STOP');
-        const simulatedSpeed = isStop ? 0 : Math.floor(10 + Math.random() * 8);
-        updateTelemetryUI(stop.street, stop.next, simulatedSpeed, 'Route Preview Active');
-      }, 2400);
+        demoStepIndex = (demoStepIndex + 1) % detailedStreetPath.length;
+        const pt = detailedStreetPath[demoStepIndex];
+        santaMarker.setLatLng([pt.lat, pt.lng]);
+
+        if (demoStepIndex % 4 === 0) {
+          map.panTo([pt.lat, pt.lng], { animate: true, duration: 0.45 });
+        }
+
+        const isStop = pt.street.includes('STOP');
+        const simulatedSpeed = isStop ? 0 : 14;
+        updateTelemetryUI(pt.street, pt.next, simulatedSpeed, 'Driving Real Streets');
+      }, 220);
     }
 
     // Live Geotab Proxy Polling (Every 4 Seconds)
